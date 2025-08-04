@@ -49,7 +49,7 @@
 
     - name: Remove RabbitMQ repository files (RHEL/CentOS)
       file:
-        path: "{{ item }}"
+        path: "{{ repo_file }}"
         state: absent
       loop:
         - /etc/yum.repos.d/modern-erlang.repo

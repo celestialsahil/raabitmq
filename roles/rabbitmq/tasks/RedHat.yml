@@ -15,6 +15,7 @@
       - gnupg2
       - wget
       - logrotate
+      - socat
     state: present
 
 # FIXED: Import official RabbitMQ signing keys as per documentation

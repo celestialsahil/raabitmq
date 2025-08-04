@@ -1,0 +1,6 @@
+# Ansible-specific files
+*.retry
+*.log
+ansible.log
+fact_caching/
+.ansible/

@@ -32,17 +32,17 @@
     "ansible_date_time": {
         "date": "2025-08-04",
         "day": "04",
-        "epoch": "1754305236",
-        "epoch_int": "1754305236",
-        "hour": "11",
-        "iso8601": "2025-08-04T11:00:36Z",
-        "iso8601_basic": "20250804T110036682427",
-        "iso8601_basic_short": "20250804T110036",
-        "iso8601_micro": "2025-08-04T11:00:36.682427Z",
-        "minute": "00",
+        "epoch": "1754312140",
+        "epoch_int": "1754312140",
+        "hour": "12",
+        "iso8601": "2025-08-04T12:55:40Z",
+        "iso8601_basic": "20250804T125540265299",
+        "iso8601_basic_short": "20250804T125540",
+        "iso8601_micro": "2025-08-04T12:55:40.265299Z",
+        "minute": "55",
         "month": "08",
-        "second": "36",
-        "time": "11:00:36",
+        "second": "40",
+        "time": "12:55:40",
         "tz": "UTC",
         "tz_dst": "UTC",
         "tz_offset": "+0000",
@@ -498,11 +498,11 @@
         "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin",
         "PWD": "/root",
         "SHELL": "/bin/bash",
-        "SUDO_COMMAND": "/bin/sh -c echo BECOME-SUCCESS-fyxuseryuxusaidhtidtzkginyocsrwz ; /usr/bin/python3 /root/.ansible/tmp/ansible-tmp-1754305236.2506385-4718-196149877607764/AnsiballZ_setup.py",
+        "SUDO_COMMAND": "/bin/sh -c echo BECOME-SUCCESS-vmnjvgifeaoegyencqnsuxhymcmplcbg ; /usr/bin/python3 /root/.ansible/tmp/ansible-tmp-1754312139.6958704-5601-40152911516384/AnsiballZ_setup.py",
         "SUDO_GID": "0",
         "SUDO_UID": "0",
         "SUDO_USER": "root",
-        "TERM": "xterm",
+        "TERM": "xterm-256color",
         "USER": "root"
     },
     "ansible_fibre_channel_wwn": [],
@@ -512,8 +512,8 @@
     "ansible_hostname": "ansible-client-java-1",
     "ansible_hostnqn": "nqn.2014-08.org.nvmexpress:uuid:dba5447f-9c80-4ac4-a757-45a9cfd0b198",
     "ansible_interfaces": [
-        "lo",
-        "ens4"
+        "ens4",
+        "lo"
     ],
     "ansible_is_chroot": false,
     "ansible_iscsi_iqn": "",
@@ -640,16 +640,16 @@
     },
     "ansible_machine": "x86_64",
     "ansible_machine_id": "8429b3bb849b6e0db9084d4d214ef8ad",
-    "ansible_memfree_mb": 2553,
+    "ansible_memfree_mb": 2808,
     "ansible_memory_mb": {
         "nocache": {
-            "free": 3490,
-            "used": 423
+            "free": 3600,
+            "used": 313
         },
         "real": {
-            "free": 2553,
+            "free": 2808,
             "total": 3913,
-            "used": 1360
+            "used": 1105
         },
         "swap": {
             "cached": 0,
@@ -661,18 +661,18 @@
     "ansible_memtotal_mb": 3913,
     "ansible_mounts": [
         {
-            "block_available": 1248311,
+            "block_available": 1113677,
             "block_size": 4096,
             "block_total": 2493522,
-            "block_used": 1245211,
+            "block_used": 1379845,
             "device": "/dev/root",
             "fstype": "ext4",
-            "inode_available": 1160970,
+            "inode_available": 1160868,
             "inode_total": 1290240,
-            "inode_used": 129270,
+            "inode_used": 129372,
             "mount": "/",
             "options": "rw,relatime,discard,errors=remount-ro",
-            "size_available": 5113081856,
+            "size_available": 4561620992,
             "size_total": 10213466112,
             "uuid": "bc9e693f-5dff-436d-b650-5cc8615eff01"
         },
@@ -855,7 +855,7 @@
     "ansible_system_capabilities": [],
     "ansible_system_capabilities_enforced": "False",
     "ansible_system_vendor": "Google",
-    "ansible_uptime_seconds": 22394,
+    "ansible_uptime_seconds": 29297,
     "ansible_user_dir": "/root",
     "ansible_user_gecos": "root",
     "ansible_user_gid": 0,
@@ -5029,6 +5029,16 @@
                 "version": "0.9.6-2ubuntu0.22.04.4"
             }
         ],
+        "libssl1.1": [
+            {
+                "arch": "amd64",
+                "category": "libs",
+                "name": "libssl1.1",
+                "origin": "Ubuntu",
+                "source": "apt",
+                "version": "1.1.1f-1ubuntu2"
+            }
+        ],
         "libssl3": [
             {
                 "arch": "amd64",
@@ -6177,6 +6187,76 @@
                 "origin": "mongodb",
                 "source": "apt",
                 "version": "2.5.6"
+            }
+        ],
+        "mongodb-org": [
+            {
+                "arch": "amd64",
+                "category": "database",
+                "name": "mongodb-org",
+                "origin": "mongodb",
+                "source": "apt",
+                "version": "7.0.22"
+            }
+        ],
+        "mongodb-org-database": [
+            {
+                "arch": "amd64",
+                "category": "database",
+                "name": "mongodb-org-database",
+                "origin": "mongodb",
+                "source": "apt",
+                "version": "7.0.22"
+            }
+        ],
+        "mongodb-org-database-tools-extra": [
+            {
+                "arch": "amd64",
+                "category": "database",
+                "name": "mongodb-org-database-tools-extra",
+                "origin": "mongodb",
+                "source": "apt",
+                "version": "7.0.22"
+            }
+        ],
+        "mongodb-org-mongos": [
+            {
+                "arch": "amd64",
+                "category": "database",
+                "name": "mongodb-org-mongos",
+                "origin": "mongodb",
+                "source": "apt",
+                "version": "7.0.22"
+            }
+        ],
+        "mongodb-org-server": [
+            {
+                "arch": "amd64",
+                "category": "database",
+                "name": "mongodb-org-server",
+                "origin": "mongodb",
+                "source": "apt",
+                "version": "7.0.22"
+            }
+        ],
+        "mongodb-org-shell": [
+            {
+                "arch": "amd64",
+                "category": "database",
+                "name": "mongodb-org-shell",
+                "origin": "mongodb",
+                "source": "apt",
+                "version": "7.0.22"
+            }
+        ],
+        "mongodb-org-tools": [
+            {
+                "arch": "amd64",
+                "category": "database",
+                "name": "mongodb-org-tools",
+                "origin": "mongodb",
+                "source": "apt",
+                "version": "7.0.22"
             }
         ],
         "motd-news-config": [

@@ -35,17 +35,17 @@
     "ansible_date_time": {
         "date": "2025-08-04",
         "day": "04",
-        "epoch": "1754305236",
-        "epoch_int": "1754305236",
-        "hour": "11",
-        "iso8601": "2025-08-04T11:00:36Z",
-        "iso8601_basic": "20250804T110036732079",
-        "iso8601_basic_short": "20250804T110036",
-        "iso8601_micro": "2025-08-04T11:00:36.732079Z",
-        "minute": "00",
+        "epoch": "1754312140",
+        "epoch_int": "1754312140",
+        "hour": "12",
+        "iso8601": "2025-08-04T12:55:40Z",
+        "iso8601_basic": "20250804T125540046498",
+        "iso8601_basic_short": "20250804T125540",
+        "iso8601_micro": "2025-08-04T12:55:40.046498Z",
+        "minute": "55",
         "month": "08",
-        "second": "36",
-        "time": "11:00:36",
+        "second": "40",
+        "time": "12:55:40",
         "tz": "UTC",
         "tz_dst": "UTC",
         "tz_offset": "+0000",
@@ -196,11 +196,11 @@
         "PWD": "/root",
         "SHELL": "/bin/bash",
         "SHLVL": "0",
-        "SUDO_COMMAND": "/bin/sh -c echo BECOME-SUCCESS-lsvuhwweiythuesqafgrilppxtdtuwtp ; /usr/bin/python3 /root/.ansible/tmp/ansible-tmp-1754305235.5037012-4716-249853391580593/AnsiballZ_setup.py",
+        "SUDO_COMMAND": "/bin/sh -c echo BECOME-SUCCESS-aovqzmxpbthyxdxsjryqsbcbsyksgrps ; /usr/bin/python3 /root/.ansible/tmp/ansible-tmp-1754312138.9299984-5599-167616726023096/AnsiballZ_setup.py",
         "SUDO_GID": "0",
         "SUDO_UID": "0",
         "SUDO_USER": "root",
-        "TERM": "xterm",
+        "TERM": "xterm-256color",
         "USER": "root",
         "_": "/usr/bin/python3"
     },
@@ -302,8 +302,8 @@
     "ansible_hostname": "ansible-client-centos",
     "ansible_hostnqn": "nqn.2014-08.org.nvmexpress:uuid:8669dfff-4d56-3067-ca14-ebe48c0b5c1c",
     "ansible_interfaces": [
-        "eth0",
-        "lo"
+        "lo",
+        "eth0"
     ],
     "ansible_is_chroot": false,
     "ansible_iscsi_iqn": "",
@@ -417,16 +417,16 @@
     "ansible_lvm": "N/A",
     "ansible_machine": "x86_64",
     "ansible_machine_id": "6ab5421a484a494ea87ba74ea466107e",
-    "ansible_memfree_mb": 2096,
+    "ansible_memfree_mb": 2046,
     "ansible_memory_mb": {
         "nocache": {
-            "free": 3141,
-            "used": 511
+            "free": 3172,
+            "used": 480
         },
         "real": {
-            "free": 2096,
+            "free": 2046,
             "total": 3652,
-            "used": 1556
+            "used": 1606
         },
         "swap": {
             "cached": 0,
@@ -438,18 +438,18 @@
     "ansible_memtotal_mb": 3652,
     "ansible_mounts": [
         {
-            "block_available": 3816500,
+            "block_available": 3795177,
             "block_size": 4096,
             "block_total": 5174784,
-            "block_used": 1358284,
+            "block_used": 1379607,
             "device": "/dev/sda2",
             "fstype": "xfs",
-            "inode_available": 10258913,
+            "inode_available": 10256967,
             "inode_total": 10382336,
-            "inode_used": 123423,
+            "inode_used": 125369,
             "mount": "/",
             "options": "rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota",
-            "size_available": 15632384000,
+            "size_available": 15545044992,
             "size_total": 21195915264,
             "uuid": "3d6f9d5b-7fd2-4ecf-8716-9fb197096135"
         },
@@ -543,7 +543,7 @@
     "ansible_system_capabilities": [],
     "ansible_system_capabilities_enforced": "False",
     "ansible_system_vendor": "Google",
-    "ansible_uptime_seconds": 22380,
+    "ansible_uptime_seconds": 29283,
     "ansible_user_dir": "/root",
     "ansible_user_gecos": "root",
     "ansible_user_gid": 0,
@@ -5731,6 +5731,16 @@
                 "release": "25.el9",
                 "source": "rpm",
                 "version": "9.1.0"
+            }
+        ],
+        "rabbitmq-server": [
+            {
+                "arch": "noarch",
+                "epoch": null,
+                "name": "rabbitmq-server",
+                "release": "1.el8",
+                "source": "rpm",
+                "version": "4.1.2"
             }
         ],
         "readline": [

@@ -1,0 +1,92 @@
+- name: Remove any old RabbitMQ repo files
+  file:
+    path: "/etc/apt/sources.list.d/{{ item }}"
+    state: absent
+  loop:
+    - rabbitmq.list
+    - rabbitmq-erlang.list
+    - rabbitmq-server.list
+
+- name: Remove legacy rabbitmq.com apt sources from sources.list
+  lineinfile:
+    path: /etc/apt/sources.list
+    state: absent
+    regexp: '^deb .*rabbitmq\.com'
+
+- name: Ensure required tools are installed
+  apt:
+    name:
+      - curl
+      - gnupg
+      - apt-transport-https
+    state: present
+    update_cache: yes
+
+- name: Import Team RabbitMQ public key
+  ansible.builtin.shell: |
+    curl -1sLf "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA" | \
+    gpg --dearmor | tee /usr/share/keyrings/rabbitmq-archive-keyring.gpg > /dev/null
+  args:
+    executable: /bin/bash
+    creates: /usr/share/keyrings/rabbitmq-archive-keyring.gpg
+
+- name: Set RabbitMQ apt repository for {{ ansible_distribution_release }}
+  copy:
+    content: |
+      deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb1.rabbitmq.com/rabbitmq-erlang/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main
+      deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb2.rabbitmq.com/rabbitmq-erlang/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main
+      deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb1.rabbitmq.com/rabbitmq-server/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main
+      deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb2.rabbitmq.com/rabbitmq-server/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main
+    dest: /etc/apt/sources.list.d/rabbitmq.list
+    mode: '0644'
+
+- name: Update apt cache after repository addition
+  apt:
+    update_cache: yes
+
+- name: Install Erlang dependencies
+  apt:
+    name:
+      - erlang-base
+      - erlang-asn1
+      - erlang-crypto
+      - erlang-eldap
+      - erlang-ftp
+      - erlang-inets
+      - erlang-mnesia
+      - erlang-os-mon
+      - erlang-parsetools
+      - erlang-public-key
+      - erlang-runtime-tools
+      - erlang-snmp
+      - erlang-ssl
+      - erlang-syntax-tools
+      - erlang-tftp
+      - erlang-tools
+      - erlang-xmerl
+    state: present
+
+- name: Debug RabbitMQ version
+  debug:
+    msg: "Installing RabbitMQ version: {{ rabbitmq_version }}"
+
+- name: Install RabbitMQ version {{ rabbitmq_version }}
+  apt:
+    name: "rabbitmq-server={{ rabbitmq_version }}-1"
+    state: present
+    force_apt_get: yes
+
+- name: Enable RabbitMQ service
+  ansible.builtin.systemd:
+    name: rabbitmq-server
+    enabled: yes
+
+- name: Start RabbitMQ service
+  ansible.builtin.systemd:
+    name: rabbitmq-server
+    state: started
+
+- name: Enable RabbitMQ management plugin
+  command: rabbitmq-plugins enable rabbitmq_management
+  args:
+    creates: /var/lib/rabbitmq/.enabled_plugins

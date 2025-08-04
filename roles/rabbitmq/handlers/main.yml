@@ -1,0 +1,12 @@
+- name: restart rabbitmq
+  systemd:
+    name: rabbitmq-server
+    state: restarted
+
+- name: start rabbitmq
+  systemd:
+    name: rabbitmq-server
+    state: started
+
+- name: check status
+  command: systemctl status rabbitmq-server

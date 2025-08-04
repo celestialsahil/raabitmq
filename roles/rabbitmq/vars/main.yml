@@ -1,0 +1,4 @@
+rabbitmq_version: "4.1.2"
+rabbitmq_admin_user: "admin"
+rabbitmq_admin_password: "admin123"
+rabbitmq_enable_tls: false

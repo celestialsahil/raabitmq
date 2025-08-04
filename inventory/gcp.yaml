@@ -1,0 +1,8 @@
+plugin: google.cloud.gcp_compute
+projects:
+  - niveus-infra-ai-tools
+auth_kind: application
+regions:
+  - asia-south1
+groups:
+  rabbitmq: "labels.package == 'rabbitmq'"

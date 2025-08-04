@@ -1,0 +1,29 @@
+---
+- name: Uninstall RabbitMQ from target nodes
+  hosts: rabbitmq
+  become: true
+  tasks:
+    - name: Stop RabbitMQ service
+      systemd:
+        name: rabbitmq-server
+        state: stopped
+        enabled: no
+      ignore_errors: true
+
+    - name: Remove RabbitMQ package
+      apt:
+        name: rabbitmq-server
+        state: absent
+
+    - name: Remove Erlang packages
+      apt:
+        name: erlang*
+        state: absent
+
+    - name: Remove RabbitMQ config and data directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /etc/rabbitmq
+        - /var/lib/rabbitmq

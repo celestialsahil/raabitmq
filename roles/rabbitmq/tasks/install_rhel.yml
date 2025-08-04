@@ -1,0 +1,41 @@
+- name: Install Erlang (dependency)
+  yum:
+    name: epel-release
+    state: present
+
+- name: Add RabbitMQ repository
+  get_url:
+    url: https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh
+    dest: /tmp/rabbitmq_repo.sh
+    mode: '0755'
+
+- name: Run the RabbitMQ repo script
+  command: sh /tmp/rabbitmq_repo.sh
+
+- name: Install RabbitMQ
+  yum:
+    name: rabbitmq-server
+    state: present
+
+- name: Enable RabbitMQ management plugin
+  command: rabbitmq-plugins enable rabbitmq_management
+  args:
+    creates: /etc/rabbitmq/enabled_plugins
+
+- name: Add admin user
+  command: rabbitmqctl add_user {{ admin_user }} {{ admin_password }}
+  ignore_errors: true
+
+- name: Set admin user tags
+  command: rabbitmqctl set_user_tags {{ admin_user }} administrator
+  ignore_errors: true
+
+- name: Set admin user permissions
+  command: rabbitmqctl set_permissions -p / {{ admin_user }} ".*" ".*" ".*"
+  ignore_errors: true
+
+- name: Ensure RabbitMQ is started
+  service:
+    name: rabbitmq-server
+    state: started
+    enabled: yes

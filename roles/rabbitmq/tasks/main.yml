@@ -1,0 +1,43 @@
+- name: Set compatible RabbitMQ versions based on OS
+  set_fact:
+    compatible_versions: >-
+      {% if (ansible_distribution == 'Ubuntu' and ansible_distribution_release in ['focal', 'jammy', 'noble']) or
+            (ansible_distribution == 'Debian' and ansible_distribution_release in ['bullseye', 'bookworm']) %}
+        ['4.1.2', '4.1.1', '4.1.0']
+      {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux'] and ansible_distribution_major_version in ['8', '9'] %}
+        ['4.1.2', '4.1.1', '4.1.0']
+      {% else %}
+        []
+      {% endif %}
+
+- name: Ensure OS is supported for RabbitMQ
+  fail:
+    msg: >-
+      Unsupported OS for RabbitMQ 4.1.x installation.
+      Supported OS:
+        - Ubuntu 20.04 (focal), 22.04 (jammy), 24.04 (noble)
+        - Debian 11 (bullseye), 12 (bookworm)
+        - RHEL/CentOS/Rocky/Oracle Linux 8 and 9
+  when: compatible_versions | length == 0
+
+- name: Verify user-specified RabbitMQ version is compatible
+  fail:
+    msg: >-
+      Invalid RabbitMQ version '{{ rabbitmq_version }}' for host '{{ inventory_hostname }}'.
+      Supported versions for this OS: {{ compatible_versions | join(', ') }}
+  when: rabbitmq_version not in compatible_versions
+
+- name: Finalize RabbitMQ version fact
+  set_fact:
+    selected_version: "{{ rabbitmq_version }}"
+    rabbitmq_version: "{{ rabbitmq_version }}"
+
+- name: Include platform-specific installation tasks
+  include_tasks: >-
+    {% if ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian' %}
+      install_debian.yml
+    {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux'] %}
+      install_rhel.yml
+    {% else %}
+      unsupported_os.yml
+    {% endif %}

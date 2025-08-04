@@ -1,4 +1,56 @@
+# RabbitMQ Version Configuration
 rabbitmq_version: "4.1.2"
+
+# Admin User Configuration (TODO: Move to Ansible Vault)
 rabbitmq_admin_user: "admin"
 rabbitmq_admin_password: "admin123"
+
+# Network Configuration
+rabbitmq_tcp_port: 5672
+rabbitmq_management_port: 15672
+rabbitmq_management_bind_ip: "0.0.0.0"
+
+# Security Configuration
+rabbitmq_allow_guest_loopback: false
+
+# SSL/TLS Configuration
 rabbitmq_enable_tls: false
+rabbitmq_ssl_port: 5671
+rabbitmq_ssl_verify: "verify_peer"
+rabbitmq_ssl_fail_if_no_peer_cert: true
+rabbitmq_management_ssl_port: 15671
+
+# SSL Certificate Paths (when TLS is enabled)
+rabbitmq_ssl_cacert_file: "/etc/rabbitmq/ssl/ca_certificate.pem"
+rabbitmq_ssl_cert_file: "/etc/rabbitmq/ssl/server_certificate.pem"
+rabbitmq_ssl_key_file: "/etc/rabbitmq/ssl/server_key.pem"
+
+# Logging Configuration
+rabbitmq_log_console: false
+rabbitmq_log_level: "info"
+rabbitmq_log_file: "/var/log/rabbitmq/rabbit.log"
+
+# Performance Configuration
+rabbitmq_memory_high_watermark: "0.6"
+rabbitmq_disk_free_limit: "1.0"
+rabbitmq_channel_max: 2047
+rabbitmq_connection_max: 65535
+rabbitmq_heartbeat: 60
+
+# Clustering Configuration
+rabbitmq_cluster_enabled: false
+rabbitmq_cluster_discovery_backend: "rabbit_peer_discovery_classic_config"
+# rabbitmq_cluster_nodes:
+#   - rabbit1
+#   - rabbit2
+#   - rabbit3
+
+# Plugin Configuration
+rabbitmq_plugins:
+  - rabbitmq_management
+  - rabbitmq_management_agent
+
+# Health Check Configuration
+rabbitmq_health_check_timeout: 60
+rabbitmq_health_check_retries: 10
+rabbitmq_health_check_delay: 10

@@ -1,43 +1,212 @@
-- name: Set compatible RabbitMQ versions based on OS
+---
+# ============================================================================
+# RabbitMQ Installation - Main Tasks
+# ============================================================================
+
+# Pre-flight System Checks
+- name: Include pre-flight checks
+  include_tasks: preflight.yml
+  tags: ['rabbitmq', 'preflight']
+
+# OS and Version Compatibility Matrix (GCP-focused)
+- name: Set compatible RabbitMQ versions based on OS and architecture
   set_fact:
     compatible_versions: >-
       {% if (ansible_distribution == 'Ubuntu' and ansible_distribution_release in ['focal', 'jammy', 'noble']) or
             (ansible_distribution == 'Debian' and ansible_distribution_release in ['bullseye', 'bookworm']) %}
-        ['4.1.2', '4.1.1', '4.1.0']
-      {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux'] and ansible_distribution_major_version in ['8', '9'] %}
+        {% if ansible_architecture == 'x86_64' %}
+          ['4.1.2', '4.1.1', '4.1.0', '4.0.4', '4.0.3']
+        {% elif ansible_architecture == 'aarch64' %}
+          ['4.1.2', '4.1.1', '4.1.0']
+        {% else %}
+          []
+        {% endif %}
+      {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux', 'AlmaLinux'] and ansible_distribution_major_version in ['8', '9'] %}
+        {% if ansible_architecture == 'x86_64' %}
+          ['4.1.2', '4.1.1', '4.1.0', '4.0.4', '4.0.3']
+        {% elif ansible_architecture == 'aarch64' %}
+          ['4.1.2', '4.1.1', '4.1.0']
+        {% else %}
+          []
+        {% endif %}
+      {% elif ansible_distribution == 'Fedora' and ansible_distribution_major_version | int >= 39 %}
         ['4.1.2', '4.1.1', '4.1.0']
       {% else %}
         []
       {% endif %}
+    supported_os_list: |
+      Supported Operating Systems (GCP Images):
+        - Ubuntu: 20.04 (focal), 22.04 (jammy), 24.04 (noble)
+        - Debian: 11 (bullseye), 12 (bookworm)  
+        - RHEL/CentOS/Rocky/Oracle/Alma Linux: 8.x, 9.x
+        - Fedora: 39, 40, 41
+      Supported Architectures: x86_64 (amd64), aarch64 (arm64)
+      
+      Common GCP Image Families:
+        - ubuntu-2004-lts, ubuntu-2204-lts, ubuntu-2404-lts
+        - debian-11, debian-12
+        - rhel-8, rhel-9
+        - rocky-linux-8, rocky-linux-9
 
-- name: Ensure OS is supported for RabbitMQ
+- name: Display detected system information
+  debug:
+    msg: |
+      Detected System Information:
+        - OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
+        - Architecture: {{ ansible_architecture }}
+        - Kernel: {{ ansible_kernel }}
+        - Python Version: {{ ansible_python_version }}
+        - Available RAM: {{ ansible_memtotal_mb }}MB
+        - Available Disk (root): {{ ansible_mounts | selectattr('mount', 'equalto', '/') | map(attribute='size_available') | first | default(0) | int // 1024 // 1024 }}MB
+  tags: ['rabbitmq', 'info']
+
+- name: Ensure OS and architecture are supported for RabbitMQ
   fail:
-    msg: >-
-      Unsupported OS for RabbitMQ 4.1.x installation.
-      Supported OS:
-        - Ubuntu 20.04 (focal), 22.04 (jammy), 24.04 (noble)
-        - Debian 11 (bullseye), 12 (bookworm)
-        - RHEL/CentOS/Rocky/Oracle Linux 8 and 9
+    msg: |
+      ❌ UNSUPPORTED SYSTEM DETECTED ❌
+      
+      Current System:
+        - OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
+        - Architecture: {{ ansible_architecture }}
+      
+      {{ supported_os_list }}
+      
+      For unsupported systems, consider:
+        1. Using RabbitMQ Docker containers
+        2. Building from source (advanced users only)
+        3. Using generic Unix tarball installation
   when: compatible_versions | length == 0
+  tags: ['rabbitmq', 'validation']
 
 - name: Verify user-specified RabbitMQ version is compatible
   fail:
-    msg: >-
-      Invalid RabbitMQ version '{{ rabbitmq_version }}' for host '{{ inventory_hostname }}'.
-      Supported versions for this OS: {{ compatible_versions | join(', ') }}
+    msg: |
+      ❌ INCOMPATIBLE RABBITMQ VERSION ❌
+      
+      Requested Version: {{ rabbitmq_version }}
+      Host: {{ inventory_hostname }}
+      OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
+      Architecture: {{ ansible_architecture }}
+      
+      Compatible versions for this system: {{ compatible_versions | join(', ') }}
+      
+      Please update your configuration to use a supported version.
   when: rabbitmq_version not in compatible_versions
+  tags: ['rabbitmq', 'validation']
 
-- name: Finalize RabbitMQ version fact
+# Check for existing RabbitMQ installation
+- name: Check if RabbitMQ is already installed
+  package_facts:
+    manager: auto
+  tags: ['rabbitmq', 'check']
+
+- name: Detect existing RabbitMQ installation
+  set_fact:
+    rabbitmq_already_installed: "{{ 'rabbitmq-server' in ansible_facts.packages }}"
+    existing_rabbitmq_version: "{{ ansible_facts.packages['rabbitmq-server'][0].version | default('unknown') if 'rabbitmq-server' in ansible_facts.packages else 'none' }}"
+  tags: ['rabbitmq', 'check']
+
+- name: Display existing installation info
+  debug:
+    msg: |
+      RabbitMQ Installation Status:
+        - Already Installed: {{ rabbitmq_already_installed }}
+        - Current Version: {{ existing_rabbitmq_version }}
+        - Target Version: {{ rabbitmq_version }}
+        - Action: {{ 'Upgrade/Reinstall' if rabbitmq_already_installed else 'Fresh Install' }}
+  when: rabbitmq_already_installed
+  tags: ['rabbitmq', 'info']
+
+# Handle existing installation
+- name: Handle existing RabbitMQ installation
+  block:
+    - name: Stop existing RabbitMQ service for upgrade
+      systemd:
+        name: rabbitmq-server
+        state: stopped
+      when: rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1')
+      
+    - name: Backup existing RabbitMQ configuration
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: yes
+        backup: yes
+      loop:
+        - { src: '/etc/rabbitmq/', dest: '/tmp/rabbitmq-config-backup-{{ ansible_date_time.epoch }}/' }
+        - { src: '/var/lib/rabbitmq/', dest: '/tmp/rabbitmq-data-backup-{{ ansible_date_time.epoch }}/' }
+      ignore_errors: yes
+      when: rabbitmq_backup_before_upgrade | default(true) and (rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1'))
+      
+  when: rabbitmq_already_installed
+  tags: ['rabbitmq', 'backup']
+
+# Set final installation facts
+- name: Finalize RabbitMQ installation facts
   set_fact:
     selected_version: "{{ rabbitmq_version }}"
-    rabbitmq_version: "{{ rabbitmq_version }}"
+    installation_type: "{{ 'upgrade' if rabbitmq_already_installed else 'fresh' }}"
+    package_manager: "{{ 'apt' if ansible_distribution in ['Ubuntu', 'Debian'] else 'yum' }}"
+  tags: ['rabbitmq', 'facts']
 
+- name: Display installation plan
+  debug:
+    msg: |
+      🚀 RabbitMQ Installation Plan:
+        - Target Version: {{ selected_version }}
+        - Installation Type: {{ installation_type | title }}
+        - Package Manager: {{ package_manager }}
+        - Host: {{ inventory_hostname }}
+        - Management UI: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
+  tags: ['rabbitmq', 'info']
+
+# Include platform-specific installation tasks
 - name: Include platform-specific installation tasks
-  include_tasks: >-
-    {% if ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian' %}
-      install_debian.yml
-    {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux'] %}
-      install_rhel.yml
-    {% else %}
-      unsupported_os.yml
-    {% endif %}
+  include_tasks: "{{ installation_task_file }}"
+  vars:
+    installation_task_file: >-
+      {% if ansible_distribution in ['Ubuntu', 'Debian'] %}
+        install_debian.yml
+      {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux', 'AlmaLinux'] %}
+        install_rhel.yml
+      {% elif ansible_distribution == 'Fedora' %}
+        install_fedora.yml
+      {% elif ansible_distribution == 'Amazon' %}
+        install_amazon.yml
+      {% else %}
+        unsupported_os.yml
+      {% endif %}
+  tags: ['rabbitmq', 'install']
+
+# Post-installation validation and configuration
+- name: Include post-installation tasks
+  include_tasks: post_install.yml
+  tags: ['rabbitmq', 'post-install', 'validation']
+
+# Display final status
+- name: Display installation completion status
+  debug:
+    msg: |
+      ✅ RabbitMQ {{ selected_version }} Installation Complete!
+      
+      🔧 Service Information:
+        - Status: {{ 'Running' if rabbitmq_service_status.status == 'running' else 'Stopped' }}
+        - Enabled: {{ 'Yes' if rabbitmq_service_status.enabled else 'No' }}
+        
+      🌐 Access Information:
+        - AMQP Port: {{ rabbitmq_tcp_port | default('5672') }}
+        - Management UI: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
+        - Admin User: {{ rabbitmq_admin_user }}
+        
+      📊 System Resources:
+        - Memory Usage: {{ rabbitmq_memory_usage | default('N/A') }}
+        - Connections: {{ rabbitmq_connections | default('0') }}
+        - Queues: {{ rabbitmq_queues | default('0') }}
+        
+      📝 Next Steps:
+        1. Access management UI: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
+        2. Login with: {{ rabbitmq_admin_user }} / [configured password]
+        3. Review logs: /var/log/rabbitmq/
+        4. Consider enabling SSL/TLS for production use
+  when: rabbitmq_service_status is defined
+  tags: ['rabbitmq', 'summary']

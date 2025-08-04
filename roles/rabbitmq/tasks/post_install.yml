@@ -1,0 +1,240 @@
+---
+# ============================================================================
+# RabbitMQ Post-Installation Validation and Configuration
+# ============================================================================
+
+- name: Get RabbitMQ service status
+  systemd:
+    name: rabbitmq-server
+  register: rabbitmq_service_status
+  tags: ['post-install', 'validation']
+
+- name: Verify RabbitMQ service is running
+  assert:
+    that:
+      - rabbitmq_service_status.status.ActiveState == "active"
+      - rabbitmq_service_status.status.SubState == "running"
+    fail_msg: |
+      ❌ RabbitMQ service is not running properly
+      Status: {{ rabbitmq_service_status.status.ActiveState }}
+      SubState: {{ rabbitmq_service_status.status.SubState }}
+      Check logs: journalctl -u rabbitmq-server -f
+    success_msg: "✅ RabbitMQ service is running"
+
+- name: Wait for RabbitMQ to fully initialize
+  wait_for:
+    port: "{{ rabbitmq_tcp_port | default('5672') }}"
+    host: localhost
+    timeout: 120
+    delay: 5
+  register: rabbitmq_port_ready
+
+- name: Verify RabbitMQ CLI tools are working
+  command: rabbitmqctl status
+  register: rabbitmq_cli_status
+  until: rabbitmq_cli_status.rc == 0
+  retries: 10
+  delay: 6
+  become: yes
+
+- name: Parse RabbitMQ status information
+  set_fact:
+    rabbitmq_node_name: "{{ rabbitmq_cli_status.stdout | regex_search('Status of node ([^\\s]+)', '\\1') | first | default('unknown') }}"
+    rabbitmq_version_installed: "{{ rabbitmq_cli_status.stdout | regex_search('RabbitMQ version: ([^\\s]+)', '\\1') | first | default('unknown') }}"
+    rabbitmq_erlang_version: "{{ rabbitmq_cli_status.stdout | regex_search('Erlang/OTP ([^\\s]+)', '\\1') | first | default('unknown') }}"
+
+- name: Verify installed version matches requested version
+  assert:
+    that:
+      - rabbitmq_version in rabbitmq_version_installed
+    fail_msg: |
+      ❌ Version mismatch detected
+      Requested: {{ rabbitmq_version }}
+      Installed: {{ rabbitmq_version_installed }}
+    success_msg: "✅ Correct RabbitMQ version installed: {{ rabbitmq_version_installed }}"
+
+- name: Check RabbitMQ cluster status
+  command: rabbitmqctl cluster_status
+  register: rabbitmq_cluster_info
+  become: yes
+  ignore_errors: yes
+
+- name: Verify management plugin is enabled
+  command: rabbitmq-plugins list
+  register: rabbitmq_plugins_list
+  become: yes
+
+- name: Check if management plugin is active
+  set_fact:
+    management_plugin_enabled: "{{ 'rabbitmq_management' in rabbitmq_plugins_list.stdout and '[E*]' in rabbitmq_plugins_list.stdout }}"
+
+- name: Wait for management interface to be ready
+  uri:
+    url: "http://localhost:{{ rabbitmq_management_port | default('15672') }}/api/overview"
+    method: GET
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    force_basic_auth: yes
+    status_code: 200
+    timeout: 10
+  register: management_api_check
+  until: management_api_check.status == 200
+  retries: 12
+  delay: 10
+  when: management_plugin_enabled
+
+- name: Get RabbitMQ system metrics
+  uri:
+    url: "http://localhost:{{ rabbitmq_management_port | default('15672') }}/api/overview"
+    method: GET
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    force_basic_auth: yes
+  register: rabbitmq_overview
+  when: management_plugin_enabled
+  ignore_errors: yes
+
+- name: Extract system metrics
+  set_fact:
+    rabbitmq_memory_usage: "{{ (rabbitmq_overview.json.queue_totals.memory | default(0) / 1024 / 1024) | round(2) }}MB"
+    rabbitmq_connections: "{{ rabbitmq_overview.json.object_totals.connections | default(0) }}"
+    rabbitmq_queues: "{{ rabbitmq_overview.json.object_totals.queues | default(0) }}"
+    rabbitmq_exchanges: "{{ rabbitmq_overview.json.object_totals.exchanges | default(0) }}"
+    rabbitmq_consumers: "{{ rabbitmq_overview.json.object_totals.consumers | default(0) }}"
+  when: management_plugin_enabled and rabbitmq_overview is succeeded
+
+- name: Test basic RabbitMQ functionality
+  block:
+    - name: Create test vhost
+      rabbitmq_vhost:
+        name: test_vhost
+        state: present
+      register: test_vhost_creation
+
+    - name: Create test user
+      rabbitmq_user:
+        user: test_user
+        password: test_password
+        vhost: test_vhost
+        configure_priv: .*
+        read_priv: .*
+        write_priv: .*
+        state: present
+      register: test_user_creation
+
+    - name: Clean up test resources
+      block:
+        - name: Remove test user
+          rabbitmq_user:
+            user: test_user
+            state: absent
+
+        - name: Remove test vhost
+          rabbitmq_vhost:
+            name: test_vhost
+            state: absent
+      when: test_vhost_creation is succeeded and test_user_creation is succeeded
+
+  rescue:
+    - name: Functional test failed
+      debug:
+        msg: |
+          ⚠️  Basic functionality test failed
+          This doesn't necessarily mean installation failed,
+          but some advanced features may not work properly.
+
+- name: Verify RabbitMQ log files exist and are accessible
+  stat:
+    path: "{{ item }}"
+  register: log_files_check
+  loop:
+    - /var/log/rabbitmq
+    - "/var/log/rabbitmq/rabbit@{{ ansible_hostname }}.log"
+
+- name: Check log file permissions
+  debug:
+    msg: |
+      Log Files Status:
+      {% for result in log_files_check.results %}
+        - {{ result.item }}: {{ 'EXISTS' if result.stat.exists else 'MISSING' }}
+      {% endfor %}
+
+- name: Check RabbitMQ configuration file
+  stat:
+    path: /etc/rabbitmq/rabbitmq.conf
+  register: config_file_check
+
+- name: Validate configuration file syntax (if exists)
+  command: rabbitmq-diagnostics check_config_schema
+  register: config_validation
+  become: yes
+  when: config_file_check.stat.exists
+  ignore_errors: yes
+
+- name: Run comprehensive RabbitMQ diagnostics
+  command: rabbitmq-diagnostics check_running_and_booted
+  register: rabbitmq_diagnostics
+  become: yes
+  ignore_errors: yes
+
+- name: Check system resource limits
+  command: rabbitmq-diagnostics check_local_alarms
+  register: rabbitmq_alarms
+  become: yes
+  ignore_errors: yes
+
+- name: Verify network listeners
+  command: rabbitmq-diagnostics listeners
+  register: rabbitmq_listeners
+  become: yes
+
+- name: Parse listener information
+  set_fact:
+    active_listeners: "{{ rabbitmq_listeners.stdout_lines | select('match', '.*Interface.*') | list }}"
+
+- name: Final installation validation summary
+  debug:
+    msg: |
+      🎉 RabbitMQ Installation Validation Complete!
+      
+      📋 Service Status:
+        - Service State: {{ rabbitmq_service_status.status.ActiveState }}
+        - Service Sub-state: {{ rabbitmq_service_status.status.SubState }}
+        - Node Name: {{ rabbitmq_node_name }}
+        - Version: {{ rabbitmq_version_installed }}
+        - Erlang Version: {{ rabbitmq_erlang_version }}
+      
+      🔌 Network Status:
+        {% for listener in active_listeners %}
+        - {{ listener }}
+        {% endfor %}
+      
+      🔧 Management Interface:
+        - Plugin Enabled: {{ 'YES' if management_plugin_enabled else 'NO' }}
+        {% if management_plugin_enabled %}
+        - API Accessible: {{ 'YES' if management_api_check is succeeded else 'NO' }}
+        - URL: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
+        {% endif %}
+      
+      📊 Current Metrics:
+        {% if rabbitmq_memory_usage is defined %}
+        - Memory Usage: {{ rabbitmq_memory_usage }}
+        - Active Connections: {{ rabbitmq_connections }}
+        - Total Queues: {{ rabbitmq_queues }}
+        - Total Exchanges: {{ rabbitmq_exchanges }}
+        - Active Consumers: {{ rabbitmq_consumers }}
+        {% else %}
+        - Metrics: Not available (management plugin may not be ready)
+        {% endif %}
+      
+      🔍 Diagnostics:
+        - Running and Booted: {{ 'PASS' if rabbitmq_diagnostics.rc == 0 else 'FAIL' }}
+        - Local Alarms: {{ 'NONE' if rabbitmq_alarms.rc == 0 else 'ACTIVE' }}
+        - Config Validation: {{ 'PASS' if config_validation.rc == 0 else 'SKIP/FAIL' }}
+      
+      {% if rabbitmq_alarms.rc != 0 %}
+      ⚠️  Active Alarms Detected:
+      {{ rabbitmq_alarms.stdout }}
+      {% endif %}
+      
+      ✅ Installation Status: {{ 'SUCCESS' if rabbitmq_service_status.status.ActiveState == 'active' and rabbitmq_port_ready is succeeded else 'PARTIAL' }}

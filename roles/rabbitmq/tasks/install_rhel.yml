@@ -1,41 +1,224 @@
-- name: Install Erlang (dependency)
+---
+# RHEL/CentOS/Rocky/Oracle Linux RabbitMQ Installation
+# Based on official RabbitMQ documentation: https://www.rabbitmq.com/docs/install-rpm
+
+- name: Install EPEL repository (for older dependencies)
   yum:
     name: epel-release
     state: present
+  when: ansible_distribution in ['CentOS', 'RedHat', 'Rocky', 'OracleLinux']
 
-- name: Add RabbitMQ repository
-  get_url:
-    url: https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh
-    dest: /tmp/rabbitmq_repo.sh
-    mode: '0755'
-
-- name: Run the RabbitMQ repo script
-  command: sh /tmp/rabbitmq_repo.sh
-
-- name: Install RabbitMQ
+- name: Install required packages for RHEL-based systems
   yum:
-    name: rabbitmq-server
+    name:
+      - curl
+      - gnupg2
+      - wget
+      - logrotate
     state: present
 
-- name: Enable RabbitMQ management plugin
-  command: rabbitmq-plugins enable rabbitmq_management
-  args:
-    creates: /etc/rabbitmq/enabled_plugins
+# FIXED: Import official RabbitMQ signing keys as per documentation
+- name: Import primary RabbitMQ signing key
+  rpm_key:
+    key: https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc
+    state: present
 
-- name: Add admin user
-  command: rabbitmqctl add_user {{ admin_user }} {{ admin_password }}
-  ignore_errors: true
+- name: Import modern Erlang repository signing key
+  rpm_key:
+    key: https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key
+    state: present
 
-- name: Set admin user tags
-  command: rabbitmqctl set_user_tags {{ admin_user }} administrator
-  ignore_errors: true
+- name: Import RabbitMQ server repository signing key
+  rpm_key:
+    key: https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key
+    state: present
 
-- name: Set admin user permissions
-  command: rabbitmqctl set_permissions -p / {{ admin_user }} ".*" ".*" ".*"
-  ignore_errors: true
+- name: Remove old RabbitMQ repositories
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/yum.repos.d/rabbitmq_rabbitmq-server.repo
+    - /etc/yum.repos.d/rabbitmq_erlang.repo
+    - /etc/yum.repos.d/rabbitmq.repo
 
-- name: Ensure RabbitMQ is started
-  service:
+# FIXED: Official repository configuration based on distribution version
+- name: Add official RabbitMQ repositories for EL9 (RHEL 9, Rocky 9, Alma 9, etc.)
+  yum_repository:
+    name: "{{ item.name }}"
+    description: "{{ item.description }}"
+    baseurl: "{{ item.baseurl }}"
+    gpgcheck: yes
+    gpgkey: "{{ item.gpgkey }}"
+    enabled: yes
+    repo_gpgcheck: yes
+    sslverify: yes
+    sslcacert: /etc/pki/tls/certs/ca-bundle.crt
+    metadata_expire: 300
+    pkg_gpgcheck: yes
+    autorefresh: yes
+    type: rpm-md
+  loop:
+    - name: modern-erlang
+      description: "modern-erlang-el9"
+      baseurl: "https://yum1.rabbitmq.com/erlang/el/9/$basearch\nhttps://yum2.rabbitmq.com/erlang/el/9/$basearch"
+      gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key"
+    - name: modern-erlang-noarch
+      description: "modern-erlang-el9-noarch"
+      baseurl: "https://yum1.rabbitmq.com/erlang/el/9/noarch\nhttps://yum2.rabbitmq.com/erlang/el/9/noarch"
+      gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key\nhttps://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc"
+    - name: rabbitmq-el9
+      description: "rabbitmq-el9"
+      baseurl: "https://yum2.rabbitmq.com/rabbitmq/el/9/$basearch\nhttps://yum1.rabbitmq.com/rabbitmq/el/9/$basearch"
+      gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key\nhttps://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc"
+    - name: rabbitmq-el9-noarch
+      description: "rabbitmq-el9-noarch"
+      baseurl: "https://yum2.rabbitmq.com/rabbitmq/el/9/noarch\nhttps://yum1.rabbitmq.com/rabbitmq/el/9/noarch"
+      gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key\nhttps://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc"
+  when: ansible_distribution_major_version == '9'
+
+- name: Add official RabbitMQ repositories for EL8 (RHEL 8, Rocky 8, Alma 8, etc.)
+  yum_repository:
+    name: "{{ item.name }}"
+    description: "{{ item.description }}"
+    baseurl: "{{ item.baseurl }}"
+    gpgcheck: yes
+    gpgkey: "{{ item.gpgkey }}"
+    enabled: yes
+    repo_gpgcheck: yes
+    sslverify: yes
+    sslcacert: /etc/pki/tls/certs/ca-bundle.crt
+    metadata_expire: 300
+    pkg_gpgcheck: yes
+    autorefresh: yes
+    type: rpm-md
+  loop:
+    - name: modern-erlang
+      description: "modern-erlang-el8"
+      baseurl: "https://yum1.rabbitmq.com/erlang/el/8/$basearch\nhttps://yum2.rabbitmq.com/erlang/el/8/$basearch"
+      gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key"
+    - name: modern-erlang-noarch
+      description: "modern-erlang-el8-noarch"
+      baseurl: "https://yum1.rabbitmq.com/erlang/el/8/noarch\nhttps://yum2.rabbitmq.com/erlang/el/8/noarch"
+      gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key\nhttps://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc"
+    - name: rabbitmq-el8
+      description: "rabbitmq-el8"
+      baseurl: "https://yum2.rabbitmq.com/rabbitmq/el/8/$basearch\nhttps://yum1.rabbitmq.com/rabbitmq/el/8/$basearch"
+      gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key\nhttps://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc"
+    - name: rabbitmq-el8-noarch
+      description: "rabbitmq-el8-noarch"
+      baseurl: "https://yum2.rabbitmq.com/rabbitmq/el/8/noarch\nhttps://yum1.rabbitmq.com/rabbitmq/el/8/noarch"
+      gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key\nhttps://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc"
+  when: ansible_distribution_major_version == '8'
+
+- name: Update package metadata
+  yum:
+    update_cache: yes
+
+# FIXED: Install modern Erlang from official repositories
+- name: Install Erlang (zero-dependency version from RabbitMQ team)
+  yum:
+    name: erlang
+    state: present
+  register: erlang_install
+  until: erlang_install is succeeded
+  retries: 3
+  delay: 10
+
+- name: Debug RabbitMQ version for RHEL
+  debug:
+    msg: "Installing RabbitMQ version: {{ rabbitmq_version }}"
+
+# FIXED: Install specific RabbitMQ version with proper package naming
+- name: Install RabbitMQ server version {{ rabbitmq_version }}
+  yum:
+    name: "rabbitmq-server-{{ rabbitmq_version }}-1.el{{ ansible_distribution_major_version }}.noarch"
+    state: present
+  register: rabbitmq_install
+  until: rabbitmq_install is succeeded
+  retries: 3
+  delay: 10
+
+- name: Enable RabbitMQ service
+  systemd:
+    name: rabbitmq-server
+    enabled: yes
+
+- name: Start RabbitMQ service
+  systemd:
     name: rabbitmq-server
     state: started
-    enabled: yes
+
+# Deploy configuration before enabling management
+- name: Deploy RabbitMQ configuration
+  template:
+    src: rabbitmq.conf.j2
+    dest: /etc/rabbitmq/rabbitmq.conf
+    backup: yes
+    mode: '0644'
+    owner: rabbitmq
+    group: rabbitmq
+  notify: restart rabbitmq
+
+- name: Flush handlers to restart RabbitMQ with new config
+  meta: flush_handlers
+
+# Wait for RabbitMQ to be ready before configuring
+- name: Wait for RabbitMQ to be ready
+  wait_for:
+    port: 5672
+    host: localhost
+    timeout: 60
+    delay: 5
+
+- name: Enable RabbitMQ management plugin
+  rabbitmq_plugin:
+    names: rabbitmq_management
+    state: enabled
+  notify: restart rabbitmq
+
+# Proper user management with error handling
+- name: Add RabbitMQ admin user
+  rabbitmq_user:
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    tags: administrator
+    state: present
+  register: admin_user_result
+  until: admin_user_result is succeeded
+  retries: 3
+  delay: 5
+
+- name: Set admin user permissions
+  rabbitmq_user:
+    user: "{{ rabbitmq_admin_user }}"
+    vhost: /
+    configure_priv: .*
+    read_priv: .*
+    write_priv: .*
+    state: present
+
+# Health check verification
+- name: Wait for management interface to be ready
+  uri:
+    url: "http://localhost:15672/api/overview"
+    method: GET
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  register: management_check
+  until: management_check.status == 200
+  retries: 10
+  delay: 10
+
+- name: Display RabbitMQ installation status for RHEL
+  debug:
+    msg: |
+      RabbitMQ {{ rabbitmq_version }} installation completed successfully on {{ ansible_distribution }} {{ ansible_distribution_major_version }}!
+      Management interface: http://{{ ansible_default_ipv4.address }}:15672
+      Admin user: {{ rabbitmq_admin_user }}
+      
+      Repositories configured:
+      - Erlang: modern-erlang (EL{{ ansible_distribution_major_version }})
+      - RabbitMQ: rabbitmq-el{{ ansible_distribution_major_version }}

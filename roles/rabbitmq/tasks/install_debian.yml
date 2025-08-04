@@ -22,13 +22,31 @@
     state: present
     update_cache: yes
 
-- name: Import Team RabbitMQ public key
-  ansible.builtin.shell: |
-    curl -1sLf "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA" | \
-    gpg --dearmor | tee /usr/share/keyrings/rabbitmq-archive-keyring.gpg > /dev/null
+# FIXED: Idempotent GPG key management
+- name: Download RabbitMQ GPG key
+  get_url:
+    url: "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA"
+    dest: /tmp/rabbitmq-signing-key.asc
+    mode: '0644'
+    timeout: 30
+  register: gpg_key_download
+  until: gpg_key_download is succeeded
+  retries: 3
+  delay: 5
+
+- name: Import Team RabbitMQ public key to keyring
+  shell: |
+    gpg --dearmor < /tmp/rabbitmq-signing-key.asc > /usr/share/keyrings/com.rabbitmq.team.gpg
   args:
+    creates: /usr/share/keyrings/com.rabbitmq.team.gpg
     executable: /bin/bash
-    creates: /usr/share/keyrings/rabbitmq-archive-keyring.gpg
+
+- name: Set correct permissions on GPG keyring
+  file:
+    path: /usr/share/keyrings/com.rabbitmq.team.gpg
+    mode: '0644'
+    owner: root
+    group: root
 
 - name: Set RabbitMQ apt repository for {{ ansible_distribution_release }}
   copy:
@@ -39,10 +57,12 @@
       deb [arch=amd64 signed-by=/usr/share/keyrings/com.rabbitmq.team.gpg] https://deb2.rabbitmq.com/rabbitmq-server/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main
     dest: /etc/apt/sources.list.d/rabbitmq.list
     mode: '0644'
+  register: repo_added
 
 - name: Update apt cache after repository addition
   apt:
     update_cache: yes
+  when: repo_added is changed
 
 - name: Install Erlang dependencies
   apt:
@@ -77,16 +97,81 @@
     force_apt_get: yes
 
 - name: Enable RabbitMQ service
-  ansible.builtin.systemd:
+  systemd:
     name: rabbitmq-server
     enabled: yes
 
 - name: Start RabbitMQ service
-  ansible.builtin.systemd:
+  systemd:
     name: rabbitmq-server
     state: started
 
+# FIXED: Deploy configuration before enabling management
+- name: Deploy RabbitMQ configuration
+  template:
+    src: rabbitmq.conf.j2
+    dest: /etc/rabbitmq/rabbitmq.conf
+    backup: yes
+    mode: '0644'
+    owner: rabbitmq
+    group: rabbitmq
+  notify: restart rabbitmq
+
+- name: Flush handlers to restart RabbitMQ with new config
+  meta: flush_handlers
+
+# FIXED: Wait for RabbitMQ to be ready before configuring
+- name: Wait for RabbitMQ to be ready
+  wait_for:
+    port: 5672
+    host: localhost
+    timeout: 60
+    delay: 5
+
 - name: Enable RabbitMQ management plugin
-  command: rabbitmq-plugins enable rabbitmq_management
-  args:
-    creates: /var/lib/rabbitmq/.enabled_plugins
+  rabbitmq_plugin:
+    names: rabbitmq_management
+    state: enabled
+  notify: restart rabbitmq
+
+# FIXED: Add admin user management
+- name: Add RabbitMQ admin user
+  rabbitmq_user:
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    tags: administrator
+    state: present
+  register: admin_user_result
+  until: admin_user_result is succeeded
+  retries: 3
+  delay: 5
+
+- name: Set admin user permissions
+  rabbitmq_user:
+    user: "{{ rabbitmq_admin_user }}"
+    vhost: /
+    configure_priv: .*
+    read_priv: .*
+    write_priv: .*
+    state: present
+
+# FIXED: Verify installation
+- name: Wait for management interface to be ready
+  uri:
+    url: "http://localhost:15672/api/overview"
+    method: GET
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  register: management_check
+  until: management_check.status == 200
+  retries: 10
+  delay: 10
+
+- name: Display RabbitMQ installation status
+  debug:
+    msg: |
+      RabbitMQ {{ rabbitmq_version }} installation completed successfully!
+      Management interface: http://{{ ansible_default_ipv4.address }}:15672
+      Admin user: {{ rabbitmq_admin_user }}

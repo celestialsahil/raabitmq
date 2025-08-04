@@ -1,0 +1,187 @@
+---
+# ============================================================================
+# RabbitMQ Pre-flight Checks
+# ============================================================================
+
+- name: Gather system facts
+  setup:
+    gather_subset:
+      - hardware
+      - network
+      - virtual
+      - distribution
+  tags: ['preflight']
+
+- name: Check system requirements
+  block:
+    - name: Verify minimum RAM requirement
+      assert:
+        that:
+          - ansible_memtotal_mb >= 1024
+        fail_msg: |
+          ❌ Insufficient RAM detected: {{ ansible_memtotal_mb }}MB
+          RabbitMQ requires at least 1024MB RAM for stable operation.
+          Recommended: 2048MB+ for production workloads.
+        success_msg: "✅ RAM check passed: {{ ansible_memtotal_mb }}MB available"
+
+    - name: Verify minimum CPU cores
+      assert:
+        that:
+          - ansible_processor_vcpus >= 1
+        fail_msg: |
+          ❌ Insufficient CPU cores: {{ ansible_processor_vcpus }}
+          RabbitMQ requires at least 1 CPU core.
+          Recommended: 2+ cores for production workloads.
+        success_msg: "✅ CPU check passed: {{ ansible_processor_vcpus }} cores available"
+
+    - name: Check available disk space
+      assert:
+        that:
+          - item.size_available > 2147483648  # 2GB in bytes
+        fail_msg: |
+          ❌ Insufficient disk space on {{ item.mount }}: {{ (item.size_available / 1024 / 1024 / 1024) | round(2) }}GB
+          RabbitMQ requires at least 2GB free space for logs and data.
+          Recommended: 10GB+ for production workloads.
+        success_msg: "✅ Disk space check passed on {{ item.mount }}: {{ (item.size_available / 1024 / 1024 / 1024) | round(2) }}GB available"
+      loop: "{{ ansible_mounts | selectattr('mount', 'in', ['/', '/var', '/opt']) | list }}"
+      when: ansible_mounts is defined
+
+  rescue:
+    - name: Display system resource summary
+      debug:
+        msg: |
+          Current System Resources:
+            - RAM: {{ ansible_memtotal_mb }}MB
+            - CPU Cores: {{ ansible_processor_vcpus }}
+            - Architecture: {{ ansible_architecture }}
+            - Disk Mounts: {{ ansible_mounts | map(attribute='mount') | join(', ') if ansible_mounts is defined else 'Unable to detect' }}
+    
+    - name: Fail if requirements not met
+      fail:
+        msg: "System requirements check failed. See above for details."
+
+- name: Check network connectivity to RabbitMQ repositories
+  uri:
+    url: "{{ item }}"
+    method: HEAD
+    timeout: 10
+    status_code: [200, 301, 302, 403]  # 403 is OK for some CDNs
+  loop:
+    - "https://deb1.rabbitmq.com"  # Debian repos
+    - "https://yum1.rabbitmq.com"  # RHEL repos
+    - "https://github.com"         # GPG keys
+  ignore_errors: yes
+  register: connectivity_check
+  delegate_to: localhost
+  run_once: true
+
+- name: Warn about network connectivity issues
+  debug:
+    msg: |
+      ⚠️  Network connectivity warning:
+      Some RabbitMQ repositories may not be reachable.
+      This could be due to:
+        1. Firewall restrictions
+        2. Proxy configuration
+        3. DNS resolution issues
+        4. Temporary service outage
+      
+      Installation may fail if repositories are not accessible.
+  when: connectivity_check.results | selectattr('failed', 'equalto', true) | list | length > 0
+
+- name: Check for conflicting packages
+  package_facts:
+    manager: auto
+
+- name: Detect conflicting RabbitMQ installations
+  set_fact:
+    conflicting_packages: >-
+      {{
+        ansible_facts.packages.keys() | list |
+        intersect(['rabbitmq', 'rabbitmq-server-generic', 'qpid-broker', 'activemq']) |
+        difference(['rabbitmq-server'])
+      }}
+
+- name: Warn about conflicting message brokers
+  debug:
+    msg: |
+      ⚠️  Conflicting message broker packages detected: {{ conflicting_packages | join(', ') }}
+      These packages may interfere with RabbitMQ installation.
+      Consider removing them before proceeding:
+      {% for pkg in conflicting_packages %}
+        - {{ ansible_pkg_mgr }} remove {{ pkg }}
+      {% endfor %}
+  when: conflicting_packages | length > 0
+
+- name: Check for running services on RabbitMQ ports
+  wait_for:
+    port: "{{ item }}"
+    host: localhost
+    timeout: 3
+    state: started
+  loop:
+    - "{{ rabbitmq_tcp_port | default('5672') }}"
+    - "{{ rabbitmq_management_port | default('15672') }}"
+  ignore_errors: yes
+  register: port_check
+
+- name: Warn about occupied ports
+  debug:
+    msg: |
+      ⚠️  Port {{ item.item }} is already in use.
+      This may indicate:
+        1. RabbitMQ is already running
+        2. Another service is using this port
+        3. A previous installation wasn't fully removed
+      
+      Check running services: sudo netstat -tlnp | grep {{ item.item }}
+  loop: "{{ port_check.results }}"
+  when: item.failed is not defined or not item.failed
+
+- name: Check SELinux status (RHEL-based systems)
+  command: getenforce
+  register: selinux_status
+  ignore_errors: yes
+  when: ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux', 'AlmaLinux', 'Fedora']
+
+- name: Display SELinux information
+  debug:
+    msg: |
+      SELinux Status: {{ selinux_status.stdout | default('Not available') }}
+      {% if selinux_status.stdout | default('') == 'Enforcing' %}
+      ⚠️  SELinux is in enforcing mode.
+      You may need to configure SELinux policies for RabbitMQ:
+        - setsebool -P nis_enabled 1
+        - setsebool -P network_connect_db 1
+      {% endif %}
+  when: selinux_status is defined and selinux_status.stdout is defined
+
+- name: Check systemd availability
+  command: systemctl --version
+  register: systemd_check
+  ignore_errors: yes
+
+- name: Verify systemd is available
+  assert:
+    that:
+      - systemd_check.rc == 0
+    fail_msg: |
+      ❌ systemd is not available or not working properly.
+      RabbitMQ service management requires systemd.
+      Output: {{ systemd_check.stderr | default('No error output') }}
+    success_msg: "✅ systemd is available"
+
+- name: Summary of preflight checks
+  debug:
+    msg: |
+      🔍 Pre-flight Check Summary:
+        ✅ System Requirements: {{ 'PASSED' if ansible_memtotal_mb >= 1024 and ansible_processor_vcpus >= 1 else 'FAILED' }}
+        ✅ Network Connectivity: {{ 'OK' if (connectivity_check.results | selectattr('failed', 'equalto', true) | list | length == 0) else 'WARNINGS' }}
+        ✅ Port Availability: {{ 'AVAILABLE' if (port_check.results | selectattr('failed', 'defined') | list | length == 0) else 'OCCUPIED' }}
+        ✅ Conflicting Packages: {{ 'NONE' if (conflicting_packages | length == 0) else 'DETECTED' }}
+        ✅ systemd: {{ 'AVAILABLE' if systemd_check.rc == 0 else 'UNAVAILABLE' }}
+        {% if selinux_status is defined and selinux_status.stdout is defined %}
+        ✅ SELinux: {{ selinux_status.stdout }}
+        {% endif %}
+      
+      System is {{ 'READY' if ansible_memtotal_mb >= 1024 and ansible_processor_vcpus >= 1 and systemd_check.rc == 0 else 'NOT READY' }} for RabbitMQ installation.

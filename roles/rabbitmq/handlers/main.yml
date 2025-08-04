@@ -1,12 +1,85 @@
+---
 - name: restart rabbitmq
   systemd:
     name: rabbitmq-server
     state: restarted
+    daemon_reload: yes
+  register: rabbitmq_restart
+  until: rabbitmq_restart is succeeded
+  retries: 3
+  delay: 10
 
 - name: start rabbitmq
   systemd:
     name: rabbitmq-server
     state: started
+    enabled: yes
+  register: rabbitmq_start
+  until: rabbitmq_start is succeeded
+  retries: 3
+  delay: 5
 
-- name: check status
+- name: stop rabbitmq
+  systemd:
+    name: rabbitmq-server
+    state: stopped
+  register: rabbitmq_stop
+  until: rabbitmq_stop is succeeded
+  retries: 3
+  delay: 5
+
+- name: reload rabbitmq
+  systemd:
+    name: rabbitmq-server
+    state: reloaded
+  ignore_errors: yes
+
+- name: check rabbitmq status
   command: systemctl status rabbitmq-server
+  register: rabbitmq_status_output
+  changed_when: false
+  failed_when: false
+
+- name: verify rabbitmq is running
+  command: rabbitmqctl status
+  register: rabbitmq_ctl_status
+  changed_when: false
+  until: rabbitmq_ctl_status.rc == 0
+  retries: 5
+  delay: 10
+
+- name: wait for rabbitmq port
+  wait_for:
+    port: "{{ rabbitmq_tcp_port | default('5672') }}"
+    host: localhost
+    timeout: "{{ rabbitmq_health_check_timeout | default('60') }}"
+    delay: 5
+
+- name: wait for management port
+  wait_for:
+    port: "{{ rabbitmq_management_port | default('15672') }}"
+    host: localhost
+    timeout: "{{ rabbitmq_health_check_timeout | default('60') }}"
+    delay: 5
+
+- name: verify management api
+  uri:
+    url: "http://localhost:{{ rabbitmq_management_port | default('15672') }}/api/overview"
+    method: GET
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  register: management_api_check
+  until: management_api_check.status == 200
+  retries: "{{ rabbitmq_health_check_retries | default('10') }}"
+  delay: "{{ rabbitmq_health_check_delay | default('10') }}"
+
+- name: log rabbitmq status
+  debug:
+    var: rabbitmq_status_output.stdout_lines
+  when: rabbitmq_status_output is defined
+
+- name: daemon-reload
+  systemd:
+    daemon_reload: yes

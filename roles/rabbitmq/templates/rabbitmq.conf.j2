@@ -9,10 +9,10 @@ management.tcp.port = {{ rabbitmq_management_port | default('15672') }}
 management.tcp.ip = {{ rabbitmq_management_bind_ip | default('0.0.0.0') }}
 
 ## Security Configuration
-loopback_users.guest = {{ rabbitmq_allow_guest_loopback | default('false') }}
+loopback_users.guest = {{ rabbitmq_allow_guest_loopback | string | lower }}
 
 ## Logging Configuration
-log.console = {{ rabbitmq_log_console | default('false') }}
+log.console = {{ rabbitmq_log_console | string | lower }}
 log.console.level = {{ rabbitmq_log_level | default('info') }}
 log.file = {{ rabbitmq_log_file | default('/var/log/rabbitmq/rabbit.log') }}
 log.file.level = {{ rabbitmq_log_level | default('info') }}
@@ -27,7 +27,7 @@ disk_free_limit.relative = {{ rabbitmq_disk_free_limit | default('1.0') }}
 ## SSL/TLS Configuration
 listeners.ssl.default = {{ rabbitmq_ssl_port | default('5671') }}
 ssl_options.verify = {{ rabbitmq_ssl_verify | default('verify_peer') }}
-ssl_options.fail_if_no_peer_cert = {{ rabbitmq_ssl_fail_if_no_peer_cert | default('true') }}
+ssl_options.fail_if_no_peer_cert = {{ rabbitmq_ssl_fail_if_no_peer_cert | string | lower }}
 ssl_options.cacertfile = {{ rabbitmq_ssl_cacert_file | default('/etc/rabbitmq/ssl/ca_certificate.pem') }}
 ssl_options.certfile = {{ rabbitmq_ssl_cert_file | default('/etc/rabbitmq/ssl/server_certificate.pem') }}
 ssl_options.keyfile = {{ rabbitmq_ssl_key_file | default('/etc/rabbitmq/ssl/server_key.pem') }}

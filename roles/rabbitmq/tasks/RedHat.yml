@@ -135,6 +135,13 @@
     name: rabbitmq-server
     state: started
 
+- name: Wait for RabbitMQ to be ready
+  wait_for:
+    port: 5672
+    host: localhost
+    timeout: 60
+    delay: 5
+
 # Deploy configuration before enabling management
 - name: Deploy RabbitMQ configuration
   template:

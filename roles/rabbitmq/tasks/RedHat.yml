@@ -125,16 +125,6 @@
   retries: 3
   delay: 10
 
-# FIXED: Install specific RabbitMQ version with proper package naming
-- name: Install RabbitMQ server version {{ rabbitmq_version }}
-  yum:
-    name: "rabbitmq-server-{{ rabbitmq_version }}-1.el{{ ansible_distribution_major_version }}.noarch"
-    state: present
-  register: rabbitmq_install
-  until: rabbitmq_install is succeeded
-  retries: 3
-  delay: 10
-
 - name: Enable RabbitMQ service
   systemd:
     name: rabbitmq-server

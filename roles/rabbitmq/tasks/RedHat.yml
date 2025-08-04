@@ -35,29 +35,27 @@
 
 - name: Remove old RabbitMQ repositories
   file:
-    path: "{{ item }}"
+    path: "/etc/apt/sources.list.d/{{ repo_file }}"
     state: absent
   loop:
-    - /etc/yum.repos.d/rabbitmq_rabbitmq-server.repo
-    - /etc/yum.repos.d/rabbitmq_erlang.repo
-    - /etc/yum.repos.d/rabbitmq.repo
+    - rabbitmq.list
+    - rabbitmq-erlang.list
+    - rabbitmq-server.list
+  loop_control:
+    loop_var: repo_file
 
-# FIXED: Official repository configuration based on distribution version
 - name: Add official RabbitMQ repositories for EL9 (RHEL 9, Rocky 9, Alma 9, etc.)
   yum_repository:
-    name: "{{ item.name }}"
-    description: "{{ item.description }}"
-    baseurl: "{{ item.baseurl }}"
+    name: "{{ repo.name }}"
+    description: "{{ repo.description }}"
+    baseurl: "{{ repo.baseurl }}"
     gpgcheck: yes
-    gpgkey: "{{ item.gpgkey }}"
+    gpgkey: "{{ repo.gpgkey }}"
     enabled: yes
     repo_gpgcheck: yes
     sslverify: yes
     sslcacert: /etc/pki/tls/certs/ca-bundle.crt
     metadata_expire: 300
-    pkg_gpgcheck: yes
-    autorefresh: yes
-    type: rpm-md
   loop:
     - name: modern-erlang
       description: "modern-erlang-el9"
@@ -75,23 +73,22 @@
       description: "rabbitmq-el9-noarch"
       baseurl: "https://yum2.rabbitmq.com/rabbitmq/el/9/noarch\nhttps://yum1.rabbitmq.com/rabbitmq/el/9/noarch"
       gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key\nhttps://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc"
+  loop_control:
+    loop_var: repo
   when: ansible_distribution_major_version == '9'
 
 - name: Add official RabbitMQ repositories for EL8 (RHEL 8, Rocky 8, Alma 8, etc.)
   yum_repository:
-    name: "{{ item.name }}"
-    description: "{{ item.description }}"
-    baseurl: "{{ item.baseurl }}"
+    name: "{{ repo.name }}"
+    description: "{{ repo.description }}"
+    baseurl: "{{ repo.baseurl }}"
     gpgcheck: yes
-    gpgkey: "{{ item.gpgkey }}"
+    gpgkey: "{{ repo.gpgkey }}"
     enabled: yes
     repo_gpgcheck: yes
     sslverify: yes
     sslcacert: /etc/pki/tls/certs/ca-bundle.crt
     metadata_expire: 300
-    pkg_gpgcheck: yes
-    autorefresh: yes
-    type: rpm-md
   loop:
     - name: modern-erlang
       description: "modern-erlang-el8"
@@ -109,25 +106,24 @@
       description: "rabbitmq-el8-noarch"
       baseurl: "https://yum2.rabbitmq.com/rabbitmq/el/8/noarch\nhttps://yum1.rabbitmq.com/rabbitmq/el/8/noarch"
       gpgkey: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key\nhttps://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc"
-  when: ansible_distribution_major_version == '8'
+  loop_control:
+    loop_var: repo
+  when: ansible_distribution_major_version == '8'      
 
 - name: Update package metadata
   yum:
     update_cache: yes
 
-# FIXED: Install modern Erlang from official repositories
-- name: Install Erlang (zero-dependency version from RabbitMQ team)
+- name: Install RabbitMQ server and Erlang
   yum:
-    name: erlang
+    name:
+      - erlang
+      - rabbitmq-server
     state: present
-  register: erlang_install
-  until: erlang_install is succeeded
+  register: rabbitmq_install
+  until: rabbitmq_install is succeeded
   retries: 3
   delay: 10
-
-- name: Debug RabbitMQ version for RHEL
-  debug:
-    msg: "Installing RabbitMQ version: {{ rabbitmq_version }}"
 
 # FIXED: Install specific RabbitMQ version with proper package naming
 - name: Install RabbitMQ server version {{ rabbitmq_version }}

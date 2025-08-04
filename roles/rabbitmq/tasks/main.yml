@@ -160,22 +160,14 @@
         - Management UI: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
   tags: ['rabbitmq', 'info']
 
+
 # Include platform-specific installation tasks
 - name: Include platform-specific installation tasks
-  include_tasks: "{{ installation_task_file }}"
-  vars:
-    installation_task_file: >-
-      {% if ansible_distribution in ['Ubuntu', 'Debian'] %}
-        install_debian.yml
-      {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux', 'AlmaLinux'] %}
-        install_rhel.yml
-      {% elif ansible_distribution == 'Fedora' %}
-        install_fedora.yml
-      {% elif ansible_distribution == 'Amazon' %}
-        install_amazon.yml
-      {% else %}
-        unsupported_os.yml
-      {% endif %}
+  include_tasks: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "unsupported_os.yml"
   tags: ['rabbitmq', 'install']
 
 # Post-installation validation and configuration

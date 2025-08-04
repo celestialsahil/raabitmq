@@ -1,31 +1,44 @@
 ---
-- name: Uninstall RabbitMQ from target nodes
+- name: Uninstall RabbitMQ and all related components
   hosts: rabbitmq
   become: true
   tasks:
-    - name: Stop RabbitMQ service
+    - name: Stop and disable RabbitMQ service
       systemd:
         name: rabbitmq-server
         state: stopped
         enabled: no
       ignore_errors: true
 
-    - name: Remove RabbitMQ package (Debian/Ubuntu)
+    # --- Debian/Ubuntu Uninstallation ---
+    - name: Remove RabbitMQ and Erlang packages (Debian/Ubuntu)
       apt:
-        name: rabbitmq-server
+        name:
+          - rabbitmq-server
+          - erlang*
         state: absent
         autoremove: yes
         purge: yes
       when: ansible_os_family == "Debian"
 
-    - name: Remove Erlang packages (Debian/Ubuntu)
-      apt:
-        name: erlang*
+    - name: Remove RabbitMQ repository file (Debian/Ubuntu)
+      file:
+        path: /etc/apt/sources.list.d/rabbitmq.list
         state: absent
-        autoremove: yes
-        purge: yes
       when: ansible_os_family == "Debian"
 
+    - name: Remove RabbitMQ GPG signing key (Debian/Ubuntu)
+      file:
+        path: /usr/share/keyrings/com.rabbitmq.team.gpg
+        state: absent
+      when: ansible_os_family == "Debian"
+
+    - name: Run apt-get update after removal (Debian/Ubuntu)
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    # --- RHEL/CentOS Uninstallation ---
     - name: Remove RabbitMQ and Erlang packages (RHEL/CentOS)
       yum:
         name:
@@ -34,6 +47,22 @@
         state: absent
       when: ansible_os_family == "RedHat"
 
+    - name: Remove RabbitMQ repository files (RHEL/CentOS)
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/yum.repos.d/modern-erlang.repo
+        - /etc/yum.repos.d/modern-erlang-noarch.repo
+        - /etc/yum.repos.d/rabbitmq-el8.repo
+        - /etc/yum.repos.d/rabbitmq-el8-noarch.repo
+        - /etc/yum.repos.d/rabbitmq-el9.repo
+        - /etc/yum.repos.d/rabbitmq-el9-noarch.repo
+      loop_control:
+        loop_var: repo_file
+      when: ansible_os_family == "RedHat"
+
+    # --- Common Cleanup ---
     - name: Remove RabbitMQ config and data directories
       file:
         path: "{{ item }}"

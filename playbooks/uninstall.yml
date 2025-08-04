@@ -65,7 +65,7 @@
     # --- Common Cleanup ---
     - name: Remove RabbitMQ config and data directories
       file:
-        path: "{{ item }}"
+        path: "{{ dir_to_remove }}"
         state: absent
       loop:
         - /etc/rabbitmq

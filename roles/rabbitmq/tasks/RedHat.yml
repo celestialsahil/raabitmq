@@ -171,6 +171,9 @@
     state: enabled
   notify: restart rabbitmq
 
+- name: Flush handlers to restart RabbitMQ after enabling plugin
+  meta: flush_handlers
+
 # Proper user management with error handling
 - name: Add RabbitMQ admin user
   rabbitmq_user:

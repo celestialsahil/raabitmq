@@ -4,5 +4,7 @@ projects:
 auth_kind: application
 regions:
   - asia-south1
+filters:
+  - status = RUNNING
 groups:
   rabbitmq: "labels.package == 'rabbitmq'"

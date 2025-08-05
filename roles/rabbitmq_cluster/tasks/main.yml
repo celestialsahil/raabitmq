@@ -1,0 +1,82 @@
+---
+- name: Set open file limit for RabbitMQ
+  pam_limits:
+    domain: "rabbitmq"
+    limit_type: "-"
+    limit_item: "nofile"
+    value: "{{ rabbitmq_open_file_limit }}"
+  when: rabbitmq_open_file_limit is defined
+
+- name: Ensure Erlang cookie is identical on all nodes
+  copy:
+    content: "{{ rabbitmq_erlang_cookie }}"
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: '0400'
+  notify: restart rabbitmq
+
+- name: Copy TLS certificates (if enabled)
+  copy:
+    src: "files/ssl/{{ item }}"
+    dest: "/etc/rabbitmq/ssl/{{ item }}"
+    owner: rabbitmq
+    group: rabbitmq
+    mode: '0644'
+  loop:
+    - "ca_certificate.pem"
+    - "server_certificate.pem"
+    - "server_key.pem"
+  when: rabbitmq_enable_tls
+  notify: restart rabbitmq
+
+- name: Flush handlers to ensure service is restarted with new config
+  meta: flush_handlers
+
+- name: Check if this node is already part of a cluster
+  command: rabbitmqctl cluster_status
+  register: cluster_status_check
+  changed_when: false
+  failed_when: false # Command fails if node is not in a cluster, which is ok
+  when: inventory_hostname in groups['rabbitmq_secondary']
+
+- name: Join the cluster (if not already clustered)
+  block:
+    - name: Stop the RabbitMQ app before joining
+      command: rabbitmqctl stop_app
+      ignore_errors: yes
+
+    - name: Join the primary node
+      command: "rabbitmqctl join_cluster rabbit@{{ groups['rabbitmq_primary'][0] }}"
+      register: join_result
+      changed_when: "'Clustering node' in join_result.stdout"
+
+    - name: Start the RabbitMQ app after joining
+      command: rabbitmqctl start_app
+  when:
+    - inventory_hostname in groups['rabbitmq_secondary']
+    - "'Clustering with' not in cluster_status_check.stdout"
+
+- name: Finalize Cluster Configuration (runs on primary node)
+  block:
+    - name: Set High Availability policy for all queues
+      rabbitmq_policy:
+        name: "{{ rabbitmq_ha_policy_name }}"
+        pattern: "{{ rabbitmq_ha_policy_pattern }}"
+        tags: "{{ rabbitmq_ha_policy_definition }}"
+        state: present
+
+    - name: Delete the default 'guest' user for security
+      rabbitmq_user:
+        user: guest
+        state: absent
+
+    - name: Check final cluster status
+      command: rabbitmqctl cluster_status
+      register: final_cluster_status
+      changed_when: false
+
+    - name: Display final cluster status
+      debug:
+        var: final_cluster_status.stdout_lines
+  when: inventory_hostname in groups['rabbitmq_primary']

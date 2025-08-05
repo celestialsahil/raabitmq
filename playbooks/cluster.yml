@@ -1,84 +1,13 @@
 ---
-- name: Install and Configure RabbitMQ on all cluster nodes
+- name: Phase 1 - Install and Configure RabbitMQ on all nodes
   hosts: rabbitmq_cluster
   become: true
   roles:
     - role: rabbitmq
 
-- name: Build and Harden RabbitMQ Cluster
+- name: Phase 2 - Build, Harden, and Verify the Cluster
   hosts: rabbitmq_cluster
   become: true
-  serial: 1 # This ensures nodes are configured one at a time
-  tasks:
-    - name: Set open file limit for RabbitMQ
-      pam_limits:
-        domain: "rabbitmq"
-        limit_type: "-"
-        limit_item: "nofile"
-        value: "{{ rabbitmq_open_file_limit }}"
-
-    - name: Ensure Erlang cookie is identical on all nodes
-      copy:
-        content: "{{ rabbitmq_erlang_cookie }}"
-        dest: /var/lib/rabbitmq/.erlang.cookie
-        owner: rabbitmq
-        group: rabbitmq
-        mode: '0400'
-      notify: restart rabbitmq
-
-    - name: Copy TLS certificates (if enabled)
-      copy:
-        src: "files/ssl/{{ item }}"
-        dest: "/etc/rabbitmq/ssl/{{ item }}"
-        owner: rabbitmq
-        group: rabbitmq
-        mode: '0644'
-      loop:
-        - "ca_certificate.pem"
-        - "server_certificate.pem"
-        - "server_key.pem"
-      when: rabbitmq_enable_tls
-      notify: restart rabbitmq
-
-    - name: Flush handlers to restart service with new config
-      meta: flush_handlers
-
-    - name: Join the cluster (only on secondary nodes)
-      block:
-        - name: Stop the RabbitMQ app
-          command: rabbitmqctl stop_app
-          ignore_errors: yes
-
-        - name: Join the primary node
-          command: "rabbitmqctl join_cluster rabbit@{{ groups['rabbitmq_primary'][0] }}"
-          register: join_result
-          changed_when: "'Clustering node' in join_result.stdout"
-
-        - name: Start the RabbitMQ app
-          command: rabbitmqctl start_app
-      when: inventory_hostname in groups['rabbitmq_secondary']
-
-- name: Finalize Cluster Configuration
-  hosts: rabbitmq_primary
-  become: true
-  tasks:
-    - name: Set High Availability policy for all queues
-      rabbitmq_policy:
-        name: "{{ rabbitmq_ha_policy_name }}"
-        pattern: "{{ rabbitmq_ha_policy_pattern }}"
-        tags: "{{ rabbitmq_ha_policy_definition }}"
-        state: present
-
-    - name: Delete the default 'guest' user
-      rabbitmq_user:
-        user: guest
-        state: absent
-
-    - name: Check cluster status
-      command: rabbitmqctl cluster_status
-      register: cluster_status
-      changed_when: false
-
-    - name: Display cluster status
-      debug:
-        var: cluster_status.stdout_lines
+  serial: 1 # This is a critical safety measure
+  roles:
+    - role: rabbitmq_cluster

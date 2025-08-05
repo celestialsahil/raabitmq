@@ -174,26 +174,20 @@
 - name: Flush handlers to restart RabbitMQ after enabling plugin
   meta: flush_handlers
 
-# Proper user management with error handling
-- name: Add RabbitMQ admin user
+- name: Add RabbitMQ admin user with all permissions
   rabbitmq_user:
     user: "{{ rabbitmq_admin_user }}"
     password: "{{ rabbitmq_admin_password }}"
+    vhost: /
+    configure_priv: .*
+    read_priv: .*
+    write_priv: .*
     tags: administrator
     state: present
   register: admin_user_result
   until: admin_user_result is succeeded
   retries: 3
   delay: 5
-
-- name: Set admin user permissions
-  rabbitmq_user:
-    user: "{{ rabbitmq_admin_user }}"
-    vhost: /
-    configure_priv: .*
-    read_priv: .*
-    write_priv: .*
-    state: present
 
 # Health check verification
 - name: Wait for management interface to be ready

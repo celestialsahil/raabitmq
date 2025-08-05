@@ -128,11 +128,15 @@
           Type 'yes' to continue or 'no' to abort.
       register: user_confirmation
 
+    # CORRECTED: This condition now checks if the variable is defined before using it.
     - name: Abort playbook if confirmation is not 'yes'
       fail:
         msg: "User aborted the playbook. No changes will be made."
       when: user_confirmation.user_input | lower != 'yes'
-  when: rabbitmq_already_installed
+  when:
+    # This entire block is skipped if rabbitmq_upgrade_confirmation is false
+    - rabbitmq_already_installed
+    - rabbitmq_upgrade_confirmation | bool
 
 # Handle existing installation
 - name: Handle existing RabbitMQ installation

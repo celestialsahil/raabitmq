@@ -60,14 +60,6 @@
         - Available Disk (root): {{ ansible_mounts | selectattr('mount', 'equalto', '/') | map(attribute='size_available') | first | default(0) | int // 1024 // 1024 }}MB
   tags: ['rabbitmq', 'info']
 
-- name: Confirm before proceeding with upgrade
-  pause:
-    prompt: |
-      WARNING: An existing RabbitMQ installation (version {{ existing_rabbitmq_version }}) was found.
-      Press ENTER to continue and upgrade to version {{ rabbitmq_version }}.
-      Press CTRL+C and then 'A' to abort the playbook.
-  when: rabbitmq_already_installed
-
 # - name: Ensure OS and architecture are supported for RabbitMQ
 #   fail:
 #     msg: |

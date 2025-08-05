@@ -49,45 +49,6 @@
   when: rabbitmq_version not in compatible_versions
   tags: ['rabbitmq', 'validation']
 
-# # Check for existing RabbitMQ installation
-# - name: Check if RabbitMQ is already installed
-#   package_facts:
-#     manager: auto
-#   tags: ['rabbitmq', 'check']
-
-# - name: Detect existing RabbitMQ installation
-#   set_fact:
-#     rabbitmq_already_installed: "{{ 'rabbitmq-server' in ansible_facts.packages }}"
-#     existing_rabbitmq_version: "{{ ansible_facts.packages['rabbitmq-server'][0].version | default('unknown') if 'rabbitmq-server' in ansible_facts.packages else 'none' }}"
-#     needs_upgrade: "{{ 'rabbitmq-server' in ansible_facts.packages and ansible_facts.packages['rabbitmq-server'][0].version != (rabbitmq_version + '-1') }}"
-#   tags: ['rabbitmq', 'check']
-
-# # Handle existing installation (only if confirmed)
-# - name: Handle existing RabbitMQ installation
-#   block:
-#     - name: Stop existing RabbitMQ service for upgrade
-#       systemd:
-#         name: rabbitmq-server
-#         state: stopped
-#       when: rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1')
-      
-#     - name: Backup existing RabbitMQ configuration
-#       copy:
-#         src: "{{ item.src }}"
-#         dest: "{{ item.dest }}"
-#         remote_src: yes
-#         backup: yes
-#       loop:
-#         - { src: '/etc/rabbitmq/', dest: '/tmp/rabbitmq-config-backup-{{ ansible_date_time.epoch }}/' }
-#         - { src: '/var/lib/rabbitmq/', dest: '/tmp/rabbitmq-data-backup-{{ ansible_date_time.epoch }}/' }
-#       ignore_errors: yes
-#       when: rabbitmq_backup_before_upgrade | default(true) and (rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1'))
-      
-#   when: 
-#     - rabbitmq_already_installed
-#     - host_upgrade_confirmed | default(false)
-#   tags: ['rabbitmq', 'backup']
-
 # Set final installation facts
 - name: Finalize RabbitMQ installation facts
   set_fact:
@@ -130,16 +91,3 @@
         - Admin User: {{ rabbitmq_admin_user }}
   when: host_upgrade_confirmed | default(false)
   tags: ['rabbitmq', 'summary']
-
-# Final status for skipped hosts
-# - name: Display skip status for excluded hosts
-#   debug:
-#     msg: |
-#       ⏭️  HOST SKIPPED: {{ inventory_hostname }}
-      
-#       Reason: {{ skip_reason | default('Unknown') }}
-#       Current RabbitMQ Status: {{ 'Installed (' + existing_rabbitmq_version + ')' if rabbitmq_already_installed else 'Not Installed' }}
-      
-#       This host was not modified and remains in its current state.
-#   when: not (host_upgrade_confirmed | default(false))
-#   tags: ['rabbitmq', 'summary']

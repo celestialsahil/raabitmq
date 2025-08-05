@@ -55,7 +55,7 @@
     selected_version: "{{ rabbitmq_version }}"
     installation_type: "{{ 'upgrade' if rabbitmq_already_installed else 'fresh' }}"
     package_manager: "{{ 'apt' if ansible_distribution in ['Ubuntu', 'Debian'] else 'yum' }}"
-  when: host_upgrade_confirmed | default(false)
+  when: host_upgrade_confirmed | default(true)
   tags: ['rabbitmq', 'facts']
 
 - name: Display installation plan

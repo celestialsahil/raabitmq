@@ -62,47 +62,31 @@
 #     needs_upgrade: "{{ 'rabbitmq-server' in ansible_facts.packages and ansible_facts.packages['rabbitmq-server'][0].version != (rabbitmq_version + '-1') }}"
 #   tags: ['rabbitmq', 'check']
 
-# Display decision summary
-- name: Display host decision summary
-  debug:
-    msg: |
-      📋 DECISION SUMMARY FOR {{ inventory_hostname }}:
+# # Handle existing installation (only if confirmed)
+# - name: Handle existing RabbitMQ installation
+#   block:
+#     - name: Stop existing RabbitMQ service for upgrade
+#       systemd:
+#         name: rabbitmq-server
+#         state: stopped
+#       when: rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1')
       
-      Status: {{ 'PROCEEDING' if host_upgrade_confirmed | default(false) else 'SKIPPING' }}
-      Reason: {{ skip_reason | default('Unknown') }}
+#     - name: Backup existing RabbitMQ configuration
+#       copy:
+#         src: "{{ item.src }}"
+#         dest: "{{ item.dest }}"
+#         remote_src: yes
+#         backup: yes
+#       loop:
+#         - { src: '/etc/rabbitmq/', dest: '/tmp/rabbitmq-config-backup-{{ ansible_date_time.epoch }}/' }
+#         - { src: '/var/lib/rabbitmq/', dest: '/tmp/rabbitmq-data-backup-{{ ansible_date_time.epoch }}/' }
+#       ignore_errors: yes
+#       when: rabbitmq_backup_before_upgrade | default(true) and (rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1'))
       
-      {% if host_upgrade_confirmed | default(false) %}
-      ✅ This host WILL be processed
-      {% else %}
-      ⏭️  This host will be SKIPPED
-      {% endif %}
-  tags: ['rabbitmq', 'info']
-
-# Handle existing installation (only if confirmed)
-- name: Handle existing RabbitMQ installation
-  block:
-    - name: Stop existing RabbitMQ service for upgrade
-      systemd:
-        name: rabbitmq-server
-        state: stopped
-      when: rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1')
-      
-    - name: Backup existing RabbitMQ configuration
-      copy:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        remote_src: yes
-        backup: yes
-      loop:
-        - { src: '/etc/rabbitmq/', dest: '/tmp/rabbitmq-config-backup-{{ ansible_date_time.epoch }}/' }
-        - { src: '/var/lib/rabbitmq/', dest: '/tmp/rabbitmq-data-backup-{{ ansible_date_time.epoch }}/' }
-      ignore_errors: yes
-      when: rabbitmq_backup_before_upgrade | default(true) and (rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1'))
-      
-  when: 
-    - rabbitmq_already_installed
-    - host_upgrade_confirmed | default(false)
-  tags: ['rabbitmq', 'backup']
+#   when: 
+#     - rabbitmq_already_installed
+#     - host_upgrade_confirmed | default(false)
+#   tags: ['rabbitmq', 'backup']
 
 # Set final installation facts
 - name: Finalize RabbitMQ installation facts

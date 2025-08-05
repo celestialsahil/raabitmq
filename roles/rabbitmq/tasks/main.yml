@@ -118,11 +118,20 @@
   tags: ['rabbitmq', 'info']
 
 - name: Confirm before proceeding with upgrade
-  pause:
-    prompt: |
-      WARNING: An existing RabbitMQ installation (version {{ existing_rabbitmq_version }}) was found.
-      Press ENTER to continue and upgrade to version {{ rabbitmq_version }}.
-      Press CTRL+C and then 'A' to abort the playbook.
+  block:
+    - name: Prompt for user confirmation
+      pause:
+        prompt: |
+          WARNING: An existing RabbitMQ installation (version {{ existing_rabbitmq_version }}) was found on {{ inventory_hostname }}.
+          This will be upgraded to version {{ rabbitmq_version }}.
+
+          Type 'yes' to continue or 'no' to abort.
+      register: user_confirmation
+
+    - name: Abort playbook if confirmation is not 'yes'
+      fail:
+        msg: "User aborted the playbook. No changes will be made."
+      when: user_confirmation.user_input | lower != 'yes'
   when: rabbitmq_already_installed
 
 # Handle existing installation

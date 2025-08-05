@@ -1,12 +1,7 @@
 ---
 # ============================================================================
-# RabbitMQ Installation - Main Tasks
+# RabbitMQ Installation - Per-Host Confirmation Control
 # ============================================================================
-
-# # Pre-flight System Checks
-# - name: Include pre-flight checks
-#   include_tasks: preflight.yml
-#   tags: ['rabbitmq', 'preflight']
 
 # OS and Version Compatibility Matrix (GCP-focused)
 - name: Set compatible RabbitMQ versions based on OS and architecture
@@ -34,19 +29,6 @@
       {% else %}
         []
       {% endif %}
-    supported_os_list: |
-      Supported Operating Systems (GCP Images):
-        - Ubuntu: 20.04 (focal), 22.04 (jammy), 24.04 (noble)
-        - Debian: 11 (bullseye), 12 (bookworm)  
-        - RHEL/CentOS/Rocky/Oracle/Alma Linux: 8.x, 9.x
-        - Fedora: 39, 40, 41
-      Supported Architectures: x86_64 (amd64), aarch64 (arm64)
-      
-      Common GCP Image Families:
-        - ubuntu-2004-lts, ubuntu-2204-lts, ubuntu-2404-lts
-        - debian-11, debian-12
-        - rhel-8, rhel-9
-        - rocky-linux-8, rocky-linux-9
 
 - name: Display detected system information
   debug:
@@ -54,43 +36,16 @@
       Detected System Information:
         - OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
         - Architecture: {{ ansible_architecture }}
-        - Kernel: {{ ansible_kernel }}
-        - Python Version: {{ ansible_python_version }}
-        - Available RAM: {{ ansible_memtotal_mb }}MB
-        - Available Disk (root): {{ ansible_mounts | selectattr('mount', 'equalto', '/') | map(attribute='size_available') | first | default(0) | int // 1024 // 1024 }}MB
+        - Host: {{ inventory_hostname }}
   tags: ['rabbitmq', 'info']
-
-# - name: Ensure OS and architecture are supported for RabbitMQ
-#   fail:
-#     msg: |
-#       ❌ UNSUPPORTED SYSTEM DETECTED ❌
-      
-#       Current System:
-#         - OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
-#         - Architecture: {{ ansible_architecture }}
-      
-#       {{ supported_os_list }}
-      
-#       For unsupported systems, consider:
-#         1. Using RabbitMQ Docker containers
-#         2. Building from source (advanced users only)
-#         3. Using generic Unix tarball installation
-#   when: compatible_versions | length == 0
-#   tags: ['rabbitmq', 'validation']
 
 - name: Verify user-specified RabbitMQ version is compatible
   fail:
     msg: |
       ❌ INCOMPATIBLE RABBITMQ VERSION ❌
-      
       Requested Version: {{ rabbitmq_version }}
       Host: {{ inventory_hostname }}
-      OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
-      Architecture: {{ ansible_architecture }}
-      
-      Compatible versions for this system: {{ compatible_versions | join(', ') }}
-      
-      Please update your configuration to use a supported version.
+      Compatible versions: {{ compatible_versions | join(', ') }}
   when: rabbitmq_version not in compatible_versions
   tags: ['rabbitmq', 'validation']
 
@@ -104,41 +59,127 @@
   set_fact:
     rabbitmq_already_installed: "{{ 'rabbitmq-server' in ansible_facts.packages }}"
     existing_rabbitmq_version: "{{ ansible_facts.packages['rabbitmq-server'][0].version | default('unknown') if 'rabbitmq-server' in ansible_facts.packages else 'none' }}"
+    needs_upgrade: "{{ 'rabbitmq-server' in ansible_facts.packages and ansible_facts.packages['rabbitmq-server'][0].version != (rabbitmq_version + '-1') }}"
   tags: ['rabbitmq', 'check']
 
-- name: Display existing installation info
-  debug:
-    msg: |
-      RabbitMQ Installation Status:
-        - Already Installed: {{ rabbitmq_already_installed }}
-        - Current Version: {{ existing_rabbitmq_version }}
-        - Target Version: {{ rabbitmq_version }}
-        - Action: {{ 'Upgrade/Reinstall' if rabbitmq_already_installed else 'Fresh Install' }}
-  when: rabbitmq_already_installed
-  tags: ['rabbitmq', 'info']
-
-- name: Confirm before proceeding with upgrade
+# SOLUTION 1: Interactive Per-Host Confirmation
+- name: Per-host upgrade confirmation (Interactive Mode)
   block:
-    - name: Prompt for user confirmation
+    - name: Display host-specific upgrade information
+      debug:
+        msg: |
+          🔄 HOST: {{ inventory_hostname }} 
+          
+          Current Status:
+            - Already Installed: {{ rabbitmq_already_installed }}
+            - Current Version: {{ existing_rabbitmq_version }}
+            - Target Version: {{ rabbitmq_version }}
+            - Action Required: {{ 'Upgrade' if needs_upgrade else 'Fresh Install' if not rabbitmq_already_installed else 'No Change' }}
+
+    - name: Prompt for individual host confirmation
       pause:
         prompt: |
-          WARNING: An existing RabbitMQ installation (version {{ existing_rabbitmq_version }}) was found on {{ inventory_hostname }}.
-          This will be upgraded to version {{ rabbitmq_version }}.
+          
+          🤔 DECISION REQUIRED FOR {{ inventory_hostname }}:
+          
+          {% if needs_upgrade %}
+          This host will be UPGRADED from {{ existing_rabbitmq_version }} to {{ rabbitmq_version }}.
+          This will cause temporary service downtime on THIS HOST ONLY.
+          {% elif not rabbitmq_already_installed %}
+          This host will have RabbitMQ {{ rabbitmq_version }} installed (fresh installation).
+          {% else %}
+          This host already has the target version. No action needed.
+          {% endif %}
+          
+          Options:
+            'yes' - Proceed with this host
+            'no'  - Skip this host (continue with other hosts)
+            'abort' - Abort entire playbook for all hosts
+          
+          What would you like to do for {{ inventory_hostname }}?
+      register: host_confirmation
+      when: 
+        - rabbitmq_upgrade_confirmation | default(true) | bool
+        - (needs_upgrade or not rabbitmq_already_installed)
 
-          Type 'yes' to continue or 'no' to abort.
-      register: user_confirmation
-
-    # CORRECTED: This condition now checks if the variable is defined before using it.
-    - name: Abort playbook if confirmation is not 'yes'
+    - name: Handle abort decision
       fail:
-        msg: "User aborted the playbook. No changes will be made."
-      when: user_confirmation.user_input | lower != 'yes'
-  when:
-    # This entire block is skipped if rabbitmq_upgrade_confirmation is false
-    - rabbitmq_already_installed
-    - rabbitmq_upgrade_confirmation | default(true) | bool
+        msg: |
+          🛑 PLAYBOOK ABORTED BY USER
+          
+          User chose to abort the entire playbook at host {{ inventory_hostname }}.
+          No changes have been made to any hosts.
+      when: 
+        - host_confirmation is defined
+        - host_confirmation.user_input | lower == 'abort'
 
-# Handle existing installation
+    - name: Set host-specific confirmation status
+      set_fact:
+        host_upgrade_confirmed: >-
+          {% if not (rabbitmq_upgrade_confirmation | default(true) | bool) %}
+            true
+          {% elif not (needs_upgrade or not rabbitmq_already_installed) %}
+            false
+          {% elif host_confirmation is defined %}
+            {{ host_confirmation.user_input | lower == 'yes' }}
+          {% else %}
+            false
+          {% endif %}
+        skip_reason: >-
+          {% if not (needs_upgrade or not rabbitmq_already_installed) %}
+            "Already at target version"
+          {% elif host_confirmation is defined and host_confirmation.user_input | lower == 'no' %}
+            "Skipped by user choice"
+          {% elif not (rabbitmq_upgrade_confirmation | default(true) | bool) %}
+            "Auto-confirmed (confirmation disabled)"
+          {% else %}
+            "Confirmed by user"
+          {% endif %}
+
+  when: rabbitmq_upgrade_confirmation | default(true) | bool
+  tags: ['rabbitmq', 'confirmation']
+
+# SOLUTION 2: Pre-defined Per-Host Control via Variables
+- name: Check for pre-defined host exclusions
+  set_fact:
+    host_upgrade_confirmed: >-
+      {% if inventory_hostname in (rabbitmq_exclude_hosts | default([])) %}
+        false
+      {% elif inventory_hostname in (rabbitmq_include_hosts | default([])) %}
+        true
+      {% elif rabbitmq_upgrade_confirmation | default(true) | bool %}
+        {{ host_upgrade_confirmed | default(true) }}
+      {% else %}
+        true
+      {% endif %}
+    skip_reason: >-
+      {% if inventory_hostname in (rabbitmq_exclude_hosts | default([])) %}
+        "Excluded via rabbitmq_exclude_hosts variable"
+      {% elif inventory_hostname in (rabbitmq_include_hosts | default([])) %}
+        "Included via rabbitmq_include_hosts variable"
+      {% else %}
+        {{ skip_reason | default("Proceeding normally") }}
+      {% endif %}
+  when: not (rabbitmq_upgrade_confirmation | default(true) | bool)
+  tags: ['rabbitmq', 'confirmation']
+
+# Display decision summary
+- name: Display host decision summary
+  debug:
+    msg: |
+      📋 DECISION SUMMARY FOR {{ inventory_hostname }}:
+      
+      Status: {{ 'PROCEEDING' if host_upgrade_confirmed | default(false) else 'SKIPPING' }}
+      Reason: {{ skip_reason | default('Unknown') }}
+      
+      {% if host_upgrade_confirmed | default(false) %}
+      ✅ This host WILL be processed
+      {% else %}
+      ⏭️  This host will be SKIPPED
+      {% endif %}
+  tags: ['rabbitmq', 'info']
+
+# Handle existing installation (only if confirmed)
 - name: Handle existing RabbitMQ installation
   block:
     - name: Stop existing RabbitMQ service for upgrade
@@ -159,7 +200,9 @@
       ignore_errors: yes
       when: rabbitmq_backup_before_upgrade | default(true) and (rabbitmq_force_reinstall | default(false) or existing_rabbitmq_version != (rabbitmq_version + '-1'))
       
-  when: rabbitmq_already_installed
+  when: 
+    - rabbitmq_already_installed
+    - host_upgrade_confirmed | default(false)
   tags: ['rabbitmq', 'backup']
 
 # Set final installation facts
@@ -168,58 +211,52 @@
     selected_version: "{{ rabbitmq_version }}"
     installation_type: "{{ 'upgrade' if rabbitmq_already_installed else 'fresh' }}"
     package_manager: "{{ 'apt' if ansible_distribution in ['Ubuntu', 'Debian'] else 'yum' }}"
+  when: host_upgrade_confirmed | default(false)
   tags: ['rabbitmq', 'facts']
 
 - name: Display installation plan
   debug:
     msg: |
-      🚀 RabbitMQ Installation Plan:
+      🚀 RabbitMQ Installation Plan for {{ inventory_hostname }}:
         - Target Version: {{ selected_version }}
         - Installation Type: {{ installation_type | title }}
         - Package Manager: {{ package_manager }}
-        - Host: {{ inventory_hostname }}
-        - Management UI: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
+        - Status: {{ 'PROCEEDING' if host_upgrade_confirmed | default(false) else 'SKIPPED' }}
+  when: host_upgrade_confirmed | default(false)
   tags: ['rabbitmq', 'info']
 
-
-# Include platform-specific installation tasks
+# Include platform-specific installation tasks (only if confirmed)
 - name: Include platform-specific installation tasks
   include_tasks: "{{ item }}"
   with_first_found:
     - "{{ ansible_distribution }}.yml"
     - "{{ ansible_os_family }}.yml"
     - "unsupported_os.yml"
+  when: host_upgrade_confirmed | default(false)
   tags: ['rabbitmq', 'install']
 
-# # Post-installation validation and configuration
-# - name: Include post-installation tasks
-#   include_tasks: post_install.yml
-#   tags: ['rabbitmq', 'post-install', 'validation']
-
-# Display final status
+# Final status for processed hosts
 - name: Display installation completion status
   debug:
     msg: |
-      ✅ RabbitMQ {{ selected_version }} Installation Complete!
+      ✅ RabbitMQ {{ selected_version }} Installation Complete on {{ inventory_hostname }}!
       
-      🔧 Service Information:
-        - Status: {{ 'Running' if rabbitmq_service_status.status == 'running' else 'Stopped' }}
-        - Enabled: {{ 'Yes' if rabbitmq_service_status.enabled else 'No' }}
-        
       🌐 Access Information:
         - AMQP Port: {{ rabbitmq_tcp_port | default('5672') }}
         - Management UI: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
         - Admin User: {{ rabbitmq_admin_user }}
-        
-      📊 System Resources:
-        - Memory Usage: {{ rabbitmq_memory_usage | default('N/A') }}
-        - Connections: {{ rabbitmq_connections | default('0') }}
-        - Queues: {{ rabbitmq_queues | default('0') }}
-        
-      📝 Next Steps:
-        1. Access management UI: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
-        2. Login with: {{ rabbitmq_admin_user }} / [configured password]
-        3. Review logs: /var/log/rabbitmq/
-        4. Consider enabling SSL/TLS for production use
-  when: rabbitmq_service_status is defined
+  when: host_upgrade_confirmed | default(false)
+  tags: ['rabbitmq', 'summary']
+
+# Final status for skipped hosts
+- name: Display skip status for excluded hosts
+  debug:
+    msg: |
+      ⏭️  HOST SKIPPED: {{ inventory_hostname }}
+      
+      Reason: {{ skip_reason | default('Unknown') }}
+      Current RabbitMQ Status: {{ 'Installed (' + existing_rabbitmq_version + ')' if rabbitmq_already_installed else 'Not Installed' }}
+      
+      This host was not modified and remains in its current state.
+  when: not (host_upgrade_confirmed | default(false))
   tags: ['rabbitmq', 'summary']

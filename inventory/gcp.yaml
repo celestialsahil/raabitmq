@@ -6,5 +6,17 @@ regions:
   - asia-south1
 filters:
   - status = RUNNING
+compose:
+  ansible_host: networkInterfaces[0].networkIP
 groups:
   rabbitmq: "labels.package == 'rabbitmq'"
+
+# Define your cluster nodes
+# groups:
+#   rabbitmq_cluster: "labels.package == 'rabbitmq'"
+
+# # Define the primary node (change 'rabbitmq-node-1' to your actual primary instance name)
+#   rabbitmq_primary: "labels.package == 'rabbitmq' and name == 'rabbitmq-node-1'"
+
+# # Define the secondary nodes
+#   rabbitmq_secondary: "labels.package == 'rabbitmq' and name != 'rabbitmq-node-1'"

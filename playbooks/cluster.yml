@@ -4,6 +4,8 @@
   become: true
   roles:
     - role: rabbitmq
+  tags:
+  - install
 
 - name: Phase 2 - Build, Harden, and Verify the Cluster
   hosts: rabbitmq_cluster
@@ -11,3 +13,5 @@
   serial: 1 # This is a critical safety measure
   roles:
     - role: rabbitmq_cluster
+  tags:
+    - cluster 

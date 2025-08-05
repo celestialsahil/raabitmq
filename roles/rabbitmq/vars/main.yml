@@ -1,5 +1,5 @@
 # RabbitMQ Version Configuration
-rabbitmq_version: "4.1.2"
+rabbitmq_version: "4.1.0"
 
 # Admin User Configuration (TODO: Move to Ansible Vault)
 rabbitmq_admin_user: "admin"
@@ -54,3 +54,32 @@ rabbitmq_plugins:
 rabbitmq_health_check_timeout: 60
 rabbitmq_health_check_retries: 10
 rabbitmq_health_check_delay: 10
+
+# Erlang Cookie - CRITICAL
+# !! IMPORTANT !! Use Ansible Vault to encrypt this file in production.
+# This MUST be a secure, secret string and be identical on all nodes.
+rabbitmq_erlang_cookie: "9wJk7xR3gH5tY2u8iP4oA6sD1fG8hJ0kL2mN5bV"
+
+# High Availability (HA) Policy
+# This policy ensures all queues are mirrored across 2 nodes.
+rabbitmq_ha_policy_name: "ha-all"
+rabbitmq_ha_policy_pattern: ".*" # Apply to all queues
+rabbitmq_ha_policy_definition:
+  ha-mode: "exactly"
+  ha-params: 2
+  ha-sync-mode: "automatic"
+
+# Performance Tuning
+# Set the maximum number of file descriptors for the RabbitMQ process.
+# This is critical for handling a large number of concurrent connections.
+rabbitmq_open_file_limit: 65536
+
+# Security Hardening
+# It is highly recommended to enable TLS in production.
+rabbitmq_enable_tls: false
+# Paths for TLS certificates (must be copied to the nodes)
+rabbitmq_ssl_cacert_file: "/etc/rabbitmq/ssl/ca_certificate.pem"
+rabbitmq_ssl_cert_file: "/etc/rabbitmq/ssl/server_certificate.pem"
+rabbitmq_ssl_key_file: "/etc/rabbitmq/ssl/server_key.pem"
+rabbitmq_ssl_port: 5671
+rabbitmq_management_ssl_port: 15671

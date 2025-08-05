@@ -95,6 +95,7 @@
     name: "rabbitmq-server={{ rabbitmq_version }}-1"
     state: present
     force_apt_get: yes
+    allow_downgrade: yes
 
 - name: Enable RabbitMQ service
   systemd:

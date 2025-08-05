@@ -115,12 +115,13 @@
   yum:
     update_cache: yes
 
-- name: Install RabbitMQ server and Erlang
+- name: Install RabbitMQ server {{ rabbitmq_version }} and Erlang
   yum:
     name:
       - erlang
-      - rabbitmq-server
+      - "rabbitmq-server-{{ rabbitmq_version }}"
     state: present
+    allow_downgrade: yes
   register: rabbitmq_install
   until: rabbitmq_install is succeeded
   retries: 3

@@ -49,119 +49,18 @@
   when: rabbitmq_version not in compatible_versions
   tags: ['rabbitmq', 'validation']
 
-# Check for existing RabbitMQ installation
-- name: Check if RabbitMQ is already installed
-  package_facts:
-    manager: auto
-  tags: ['rabbitmq', 'check']
+# # Check for existing RabbitMQ installation
+# - name: Check if RabbitMQ is already installed
+#   package_facts:
+#     manager: auto
+#   tags: ['rabbitmq', 'check']
 
-- name: Detect existing RabbitMQ installation
-  set_fact:
-    rabbitmq_already_installed: "{{ 'rabbitmq-server' in ansible_facts.packages }}"
-    existing_rabbitmq_version: "{{ ansible_facts.packages['rabbitmq-server'][0].version | default('unknown') if 'rabbitmq-server' in ansible_facts.packages else 'none' }}"
-    needs_upgrade: "{{ 'rabbitmq-server' in ansible_facts.packages and ansible_facts.packages['rabbitmq-server'][0].version != (rabbitmq_version + '-1') }}"
-  tags: ['rabbitmq', 'check']
-
-# SOLUTION 1: Interactive Per-Host Confirmation
-- name: Per-host upgrade confirmation (Interactive Mode)
-  block:
-    - name: Display host-specific upgrade information
-      debug:
-        msg: |
-          🔄 HOST: {{ inventory_hostname }} 
-          
-          Current Status:
-            - Already Installed: {{ rabbitmq_already_installed }}
-            - Current Version: {{ existing_rabbitmq_version }}
-            - Target Version: {{ rabbitmq_version }}
-            - Action Required: {{ 'Upgrade' if needs_upgrade else 'Fresh Install' if not rabbitmq_already_installed else 'No Change' }}
-
-    - name: Prompt for individual host confirmation
-      pause:
-        prompt: |
-          
-          🤔 DECISION REQUIRED FOR {{ inventory_hostname }}:
-          
-          {% if needs_upgrade %}
-          This host will be UPGRADED from {{ existing_rabbitmq_version }} to {{ rabbitmq_version }}.
-          This will cause temporary service downtime on THIS HOST ONLY.
-          {% elif not rabbitmq_already_installed %}
-          This host will have RabbitMQ {{ rabbitmq_version }} installed (fresh installation).
-          {% else %}
-          This host already has the target version. No action needed.
-          {% endif %}
-          
-          Options:
-            'yes' - Proceed with this host
-            'no'  - Skip this host (continue with other hosts)
-            'abort' - Abort entire playbook for all hosts
-          
-          What would you like to do for {{ inventory_hostname }}?
-      register: host_confirmation
-      when: 
-        - rabbitmq_upgrade_confirmation | default(true) | bool
-        - (needs_upgrade or not rabbitmq_already_installed)
-
-    - name: Handle abort decision
-      fail:
-        msg: |
-          🛑 PLAYBOOK ABORTED BY USER
-          
-          User chose to abort the entire playbook at host {{ inventory_hostname }}.
-          No changes have been made to any hosts.
-      when: 
-        - host_confirmation is defined
-        - host_confirmation.user_input | lower == 'abort'
-
-    - name: Set host-specific confirmation status
-      set_fact:
-        host_upgrade_confirmed: >-
-          {% if not (rabbitmq_upgrade_confirmation | default(true) | bool) %}
-            true
-          {% elif not (needs_upgrade or not rabbitmq_already_installed) %}
-            false
-          {% elif host_confirmation is defined %}
-            {{ host_confirmation.user_input | lower == 'yes' }}
-          {% else %}
-            false
-          {% endif %}
-        skip_reason: >-
-          {% if not (needs_upgrade or not rabbitmq_already_installed) %}
-            "Already at target version"
-          {% elif host_confirmation is defined and host_confirmation.user_input | lower == 'no' %}
-            "Skipped by user choice"
-          {% elif not (rabbitmq_upgrade_confirmation | default(true) | bool) %}
-            "Auto-confirmed (confirmation disabled)"
-          {% else %}
-            "Confirmed by user"
-          {% endif %}
-
-  when: rabbitmq_upgrade_confirmation | default(true) | bool
-  tags: ['rabbitmq', 'confirmation']
-
-# SOLUTION 2: Pre-defined Per-Host Control via Variables
-# - name: Check for pre-defined host exclusions
+# - name: Detect existing RabbitMQ installation
 #   set_fact:
-#     host_upgrade_confirmed: >-
-#       {% if inventory_hostname in (rabbitmq_exclude_hosts | default([])) %}
-#         false
-#       {% elif inventory_hostname in (rabbitmq_include_hosts | default([])) %}
-#         true
-#       {% elif rabbitmq_upgrade_confirmation | default(true) | bool %}
-#         {{ host_upgrade_confirmed | default(true) }}
-#       {% else %}
-#         true
-#       {% endif %}
-#     skip_reason: >-
-#       {% if inventory_hostname in (rabbitmq_exclude_hosts | default([])) %}
-#         "Excluded via rabbitmq_exclude_hosts variable"
-#       {% elif inventory_hostname in (rabbitmq_include_hosts | default([])) %}
-#         "Included via rabbitmq_include_hosts variable"
-#       {% else %}
-#         {{ skip_reason | default("Proceeding normally") }}
-#       {% endif %}
-#   when: not (rabbitmq_upgrade_confirmation | default(true) | bool)
-#   tags: ['rabbitmq', 'confirmation']
+#     rabbitmq_already_installed: "{{ 'rabbitmq-server' in ansible_facts.packages }}"
+#     existing_rabbitmq_version: "{{ ansible_facts.packages['rabbitmq-server'][0].version | default('unknown') if 'rabbitmq-server' in ansible_facts.packages else 'none' }}"
+#     needs_upgrade: "{{ 'rabbitmq-server' in ansible_facts.packages and ansible_facts.packages['rabbitmq-server'][0].version != (rabbitmq_version + '-1') }}"
+#   tags: ['rabbitmq', 'check']
 
 # Display decision summary
 - name: Display host decision summary

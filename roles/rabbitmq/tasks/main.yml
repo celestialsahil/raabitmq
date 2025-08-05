@@ -62,7 +62,6 @@
     msg: |
       🚀 RabbitMQ Installation Plan for {{ inventory_hostname }}:
         - Target Version: {{ selected_version }}
-        - Installation Type: {{ installation_type | title }}
         - Package Manager: {{ package_manager }}
         - Status: {{ 'PROCEEDING' if host_upgrade_confirmed | default(false) else 'SKIPPED' }}
   when: host_upgrade_confirmed | default(true)

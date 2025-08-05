@@ -136,7 +136,7 @@
   when:
     # This entire block is skipped if rabbitmq_upgrade_confirmation is false
     - rabbitmq_already_installed
-    - rabbitmq_upgrade_confirmation | bool
+    - - rabbitmq_upgrade_confirmation | default(true) | bool
 
 # Handle existing installation
 - name: Handle existing RabbitMQ installation

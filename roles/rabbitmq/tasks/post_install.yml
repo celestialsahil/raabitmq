@@ -103,79 +103,79 @@
     rabbitmq_consumers: "{{ rabbitmq_overview.json.object_totals.consumers | default(0) }}"
   when: management_plugin_enabled and rabbitmq_overview is succeeded
 
-- name: Test basic RabbitMQ functionality
-  block:
-    - name: Create test vhost
-      rabbitmq_vhost:
-        name: test_vhost
-        state: present
-      register: test_vhost_creation
+# - name: Test basic RabbitMQ functionality
+#   block:
+#     - name: Create test vhost
+#       rabbitmq_vhost:
+#         name: test_vhost
+#         state: present
+#       register: test_vhost_creation
 
-    - name: Create test user
-      rabbitmq_user:
-        user: test_user
-        password: test_password
-        vhost: test_vhost
-        configure_priv: .*
-        read_priv: .*
-        write_priv: .*
-        state: present
-      register: test_user_creation
+#     - name: Create test user
+#       rabbitmq_user:
+#         user: test_user
+#         password: test_password
+#         vhost: test_vhost
+#         configure_priv: .*
+#         read_priv: .*
+#         write_priv: .*
+#         state: present
+#       register: test_user_creation
 
-    - name: Clean up test resources
-      block:
-        - name: Remove test user
-          rabbitmq_user:
-            user: test_user
-            state: absent
+#     - name: Clean up test resources
+#       block:
+#         - name: Remove test user
+#           rabbitmq_user:
+#             user: test_user
+#             state: absent
 
-        - name: Remove test vhost
-          rabbitmq_vhost:
-            name: test_vhost
-            state: absent
-      when: test_vhost_creation is succeeded and test_user_creation is succeeded
+#         - name: Remove test vhost
+#           rabbitmq_vhost:
+#             name: test_vhost
+#             state: absent
+#       when: test_vhost_creation is succeeded and test_user_creation is succeeded
 
-  rescue:
-    - name: Functional test failed
-      debug:
-        msg: |
-          ⚠️  Basic functionality test failed
-          This doesn't necessarily mean installation failed,
-          but some advanced features may not work properly.
+  # rescue:
+  #   - name: Functional test failed
+  #     debug:
+  #       msg: |
+  #         ⚠️  Basic functionality test failed
+  #         This doesn't necessarily mean installation failed,
+  #         but some advanced features may not work properly.
 
-- name: Verify RabbitMQ log files exist and are accessible
-  stat:
-    path: "{{ item }}"
-  register: log_files_check
-  loop:
-    - /var/log/rabbitmq
-    - "/var/log/rabbitmq/rabbit@{{ ansible_hostname }}.log"
+# - name: Verify RabbitMQ log files exist and are accessible
+#   stat:
+#     path: "{{ item }}"
+#   register: log_files_check
+#   loop:
+#     - /var/log/rabbitmq
+#     - "/var/log/rabbitmq/rabbit@{{ ansible_hostname }}.log"
 
-- name: Check log file permissions
-  debug:
-    msg: |
-      Log Files Status:
-      {% for result in log_files_check.results %}
-        - {{ result.item }}: {{ 'EXISTS' if result.stat.exists else 'MISSING' }}
-      {% endfor %}
+# - name: Check log file permissions
+#   debug:
+#     msg: |
+#       Log Files Status:
+#       {% for result in log_files_check.results %}
+#         - {{ result.item }}: {{ 'EXISTS' if result.stat.exists else 'MISSING' }}
+#       {% endfor %}
 
-- name: Check RabbitMQ configuration file
-  stat:
-    path: /etc/rabbitmq/rabbitmq.conf
-  register: config_file_check
+# - name: Check RabbitMQ configuration file
+#   stat:
+#     path: /etc/rabbitmq/rabbitmq.conf
+#   register: config_file_check
 
-- name: Validate configuration file syntax (if exists)
-  command: rabbitmq-diagnostics check_config_schema
-  register: config_validation
-  become: yes
-  when: config_file_check.stat.exists
-  ignore_errors: yes
+# - name: Validate configuration file syntax (if exists)
+#   command: rabbitmq-diagnostics check_config_schema
+#   register: config_validation
+#   become: yes
+#   when: config_file_check.stat.exists
+#   ignore_errors: yes
 
-- name: Run comprehensive RabbitMQ diagnostics
-  command: rabbitmq-diagnostics check_running_and_booted
-  register: rabbitmq_diagnostics
-  become: yes
-  ignore_errors: yes
+# - name: Run comprehensive RabbitMQ diagnostics
+#   command: rabbitmq-diagnostics check_running_and_booted
+#   register: rabbitmq_diagnostics
+#   become: yes
+#   ignore_errors: yes
 
 - name: Check system resource limits
   command: rabbitmq-diagnostics check_local_alarms

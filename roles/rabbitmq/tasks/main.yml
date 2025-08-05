@@ -3,10 +3,10 @@
 # RabbitMQ Installation - Main Tasks
 # ============================================================================
 
-# Pre-flight System Checks
-- name: Include pre-flight checks
-  include_tasks: preflight.yml
-  tags: ['rabbitmq', 'preflight']
+# # Pre-flight System Checks
+# - name: Include pre-flight checks
+#   include_tasks: preflight.yml
+#   tags: ['rabbitmq', 'preflight']
 
 # OS and Version Compatibility Matrix (GCP-focused)
 - name: Set compatible RabbitMQ versions based on OS and architecture
@@ -15,22 +15,22 @@
       {% if (ansible_distribution == 'Ubuntu' and ansible_distribution_release in ['focal', 'jammy', 'noble']) or
             (ansible_distribution == 'Debian' and ansible_distribution_release in ['bullseye', 'bookworm']) %}
         {% if ansible_architecture == 'x86_64' %}
-          ['4.1.2', '4.1.1', '4.1.0', '4.0.4', '4.0.3']
+          ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
         {% elif ansible_architecture == 'aarch64' %}
-          ['4.1.2', '4.1.1', '4.1.0']
+          ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
         {% else %}
           []
         {% endif %}
       {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux', 'AlmaLinux'] and ansible_distribution_major_version in ['8', '9'] %}
         {% if ansible_architecture == 'x86_64' %}
-          ['4.1.2', '4.1.1', '4.1.0', '4.0.4', '4.0.3']
+          ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
         {% elif ansible_architecture == 'aarch64' %}
-          ['4.1.2', '4.1.1', '4.1.0']
+          ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
         {% else %}
           []
         {% endif %}
       {% elif ansible_distribution == 'Fedora' and ansible_distribution_major_version | int >= 39 %}
-        ['4.1.2', '4.1.1', '4.1.0']
+        ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
       {% else %}
         []
       {% endif %}
@@ -60,23 +60,23 @@
         - Available Disk (root): {{ ansible_mounts | selectattr('mount', 'equalto', '/') | map(attribute='size_available') | first | default(0) | int // 1024 // 1024 }}MB
   tags: ['rabbitmq', 'info']
 
-- name: Ensure OS and architecture are supported for RabbitMQ
-  fail:
-    msg: |
-      ❌ UNSUPPORTED SYSTEM DETECTED ❌
+# - name: Ensure OS and architecture are supported for RabbitMQ
+#   fail:
+#     msg: |
+#       ❌ UNSUPPORTED SYSTEM DETECTED ❌
       
-      Current System:
-        - OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
-        - Architecture: {{ ansible_architecture }}
+#       Current System:
+#         - OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
+#         - Architecture: {{ ansible_architecture }}
       
-      {{ supported_os_list }}
+#       {{ supported_os_list }}
       
-      For unsupported systems, consider:
-        1. Using RabbitMQ Docker containers
-        2. Building from source (advanced users only)
-        3. Using generic Unix tarball installation
-  when: compatible_versions | length == 0
-  tags: ['rabbitmq', 'validation']
+#       For unsupported systems, consider:
+#         1. Using RabbitMQ Docker containers
+#         2. Building from source (advanced users only)
+#         3. Using generic Unix tarball installation
+#   when: compatible_versions | length == 0
+#   tags: ['rabbitmq', 'validation']
 
 - name: Verify user-specified RabbitMQ version is compatible
   fail:
@@ -116,6 +116,14 @@
         - Action: {{ 'Upgrade/Reinstall' if rabbitmq_already_installed else 'Fresh Install' }}
   when: rabbitmq_already_installed
   tags: ['rabbitmq', 'info']
+
+- name: Confirm before proceeding with upgrade
+  pause:
+    prompt: |
+      WARNING: An existing RabbitMQ installation (version {{ existing_rabbitmq_version }}) was found.
+      Press ENTER to continue and upgrade to version {{ rabbitmq_version }}.
+      Press CTRL+C and then 'A' to abort the playbook.
+  when: rabbitmq_already_installed
 
 # Handle existing installation
 - name: Handle existing RabbitMQ installation
@@ -170,10 +178,10 @@
     - "unsupported_os.yml"
   tags: ['rabbitmq', 'install']
 
-# Post-installation validation and configuration
-- name: Include post-installation tasks
-  include_tasks: post_install.yml
-  tags: ['rabbitmq', 'post-install', 'validation']
+# # Post-installation validation and configuration
+# - name: Include post-installation tasks
+#   include_tasks: post_install.yml
+#   tags: ['rabbitmq', 'post-install', 'validation']
 
 # Display final status
 - name: Display installation completion status

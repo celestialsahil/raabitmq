@@ -73,13 +73,3 @@ rabbitmq_ha_policy_definition:
 # Set the maximum number of file descriptors for the RabbitMQ process.
 # This is critical for handling a large number of concurrent connections.
 rabbitmq_open_file_limit: 65536
-
-# Security Hardening
-# It is highly recommended to enable TLS in production.
-rabbitmq_enable_tls: false
-# Paths for TLS certificates (must be copied to the nodes)
-rabbitmq_ssl_cacert_file: "/etc/rabbitmq/ssl/ca_certificate.pem"
-rabbitmq_ssl_cert_file: "/etc/rabbitmq/ssl/server_certificate.pem"
-rabbitmq_ssl_key_file: "/etc/rabbitmq/ssl/server_key.pem"
-rabbitmq_ssl_port: 5671
-rabbitmq_management_ssl_port: 15671

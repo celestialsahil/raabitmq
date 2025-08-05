@@ -132,14 +132,14 @@
   tags: ['rabbitmq', 'summary']
 
 # Final status for skipped hosts
-- name: Display skip status for excluded hosts
-  debug:
-    msg: |
-      ⏭️  HOST SKIPPED: {{ inventory_hostname }}
+# - name: Display skip status for excluded hosts
+#   debug:
+#     msg: |
+#       ⏭️  HOST SKIPPED: {{ inventory_hostname }}
       
-      Reason: {{ skip_reason | default('Unknown') }}
-      Current RabbitMQ Status: {{ 'Installed (' + existing_rabbitmq_version + ')' if rabbitmq_already_installed else 'Not Installed' }}
+#       Reason: {{ skip_reason | default('Unknown') }}
+#       Current RabbitMQ Status: {{ 'Installed (' + existing_rabbitmq_version + ')' if rabbitmq_already_installed else 'Not Installed' }}
       
-      This host was not modified and remains in its current state.
-  when: not (host_upgrade_confirmed | default(false))
-  tags: ['rabbitmq', 'summary']
+#       This host was not modified and remains in its current state.
+#   when: not (host_upgrade_confirmed | default(false))
+#   tags: ['rabbitmq', 'summary']

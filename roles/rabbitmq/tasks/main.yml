@@ -53,7 +53,6 @@
 - name: Finalize RabbitMQ installation facts
   set_fact:
     selected_version: "{{ rabbitmq_version }}"
-    installation_type: "{{ 'upgrade' if rabbitmq_already_installed else 'fresh' }}"
     package_manager: "{{ 'apt' if ansible_distribution in ['Ubuntu', 'Debian'] else 'yum' }}"
   when: host_upgrade_confirmed | default(true)
   tags: ['rabbitmq', 'facts']
@@ -66,7 +65,7 @@
         - Installation Type: {{ installation_type | title }}
         - Package Manager: {{ package_manager }}
         - Status: {{ 'PROCEEDING' if host_upgrade_confirmed | default(false) else 'SKIPPED' }}
-  when: host_upgrade_confirmed | default(false)
+  when: host_upgrade_confirmed | default(true)
   tags: ['rabbitmq', 'info']
 
 # Include platform-specific installation tasks (only if confirmed)
@@ -76,7 +75,7 @@
     - "{{ ansible_distribution }}.yml"
     - "{{ ansible_os_family }}.yml"
     - "unsupported_os.yml"
-  when: host_upgrade_confirmed | default(false)
+  when: host_upgrade_confirmed | default(true)
   tags: ['rabbitmq', 'install']
 
 # Final status for processed hosts
@@ -89,5 +88,5 @@
         - AMQP Port: {{ rabbitmq_tcp_port | default('5672') }}
         - Management UI: http://{{ ansible_default_ipv4.address }}:{{ rabbitmq_management_port | default('15672') }}
         - Admin User: {{ rabbitmq_admin_user }}
-  when: host_upgrade_confirmed | default(false)
+  when: host_upgrade_confirmed | default(true)
   tags: ['rabbitmq', 'summary']

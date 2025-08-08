@@ -1,0 +1,4 @@
+# Erlang Cookie - CRITICAL
+# !! IMPORTANT !! Use Ansible Vault to encrypt this file in production.
+# This MUST be a secure, secret string and be identical on all nodes.
+rabbitmq_erlang_cookie: "9wJk7xR3gH5tY2u8iP4oA6sD1fG8hJ0kL2mN5bV"

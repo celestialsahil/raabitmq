@@ -7,8 +7,11 @@ regions:
 filters:
   - status = RUNNING
 compose:
-  #ansible_host: networkInterfaces[0].networkIP
-  ansible_host: ansible_nodename
+  host_name: {{ ansible_nodename }}
+
+# compose:
+#   #ansible_host: networkInterfaces[0].networkIP
+#   ansible_host: ansible_nodename
 groups:
   rabbitmq: "labels.package == 'rabbitmq'"
 

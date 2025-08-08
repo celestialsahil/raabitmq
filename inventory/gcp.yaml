@@ -7,7 +7,6 @@ regions:
 filters:
   - status = RUNNING
 compose:
-  display_name: "'{{ name }} ({{ networkInterfaces[0].networkIP }})'"
   ansible_host: networkInterfaces[0].networkIP
 
 # compose:

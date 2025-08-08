@@ -14,9 +14,12 @@ rabbitmq_management_bind_ip: "0.0.0.0"
 rabbitmq_cluster_name: "mahesha"
 rabbitmq_cluster_enabled: true
 rabbitmq_cluster_discovery_backend: "rabbit_peer_discovery_classic_config"
-rabbitmq_cluster_nodes:
-  - rabbit1
-  - rabbit2
+rabbitmq_cluster_nodes: >-
+  {{ groups['rabbitmq']
+     | map('extract', hostvars, ['name'])
+     | map('regex_replace', '^(.*)$', 'rabbit@\\1')
+     | difference(['rabbit@' + hostvars[inventory_hostname].name])
+     | list }}
 
 # Security Configuration
 rabbitmq_allow_guest_loopback: false

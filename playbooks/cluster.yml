@@ -1,6 +1,6 @@
 ---
 - name: Phase 1 - Install and Configure RabbitMQ on all nodes
-  hosts: rabbitmq_cluster
+  hosts: rabbitmq
   become: true
   roles:
     - role: rabbitmq
@@ -8,7 +8,7 @@
   - install
 
 - name: Phase 2 - Build, Harden, and Verify the Cluster
-  hosts: rabbitmq_cluster
+  hosts: rabbitmq
   become: true
   serial: 1 # This is a critical safety measure
   roles:

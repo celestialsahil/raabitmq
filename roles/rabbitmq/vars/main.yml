@@ -10,6 +10,14 @@ rabbitmq_tcp_port: 5672
 rabbitmq_management_port: 15672
 rabbitmq_management_bind_ip: "0.0.0.0"
 
+# Clustering Configuration
+rabbitmq_cluster_name: "mahesha"
+rabbitmq_cluster_enabled: true
+rabbitmq_cluster_discovery_backend: "rabbit_peer_discovery_classic_config"
+rabbitmq_cluster_nodes:
+  - rabbit1
+  - rabbit2
+
 # Security Configuration
 rabbitmq_allow_guest_loopback: false
 
@@ -36,14 +44,6 @@ rabbitmq_disk_free_limit: "1.0"
 rabbitmq_channel_max: 2047
 rabbitmq_connection_max: 65535
 rabbitmq_heartbeat: 60
-
-# Clustering Configuration
-rabbitmq_cluster_enabled: false
-rabbitmq_cluster_discovery_backend: "rabbit_peer_discovery_classic_config"
-# rabbitmq_cluster_nodes:
-#   - rabbit1
-#   - rabbit2
-#   - rabbit3
 
 # Plugin Configuration
 rabbitmq_plugins:

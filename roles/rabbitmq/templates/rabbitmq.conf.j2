@@ -41,9 +41,12 @@ management.ssl.keyfile = {{ rabbitmq_ssl_key_file | default('/etc/rabbitmq/ssl/s
 
 {% if rabbitmq_cluster_enabled | default(false) %}
 ## Clustering Configuration
+cluster_name = {{ rabbitmq_cluster_name }}
 cluster_formation.peer_discovery_backend = {{ rabbitmq_cluster_discovery_backend | default('rabbit_peer_discovery_classic_config') }}
 {% if rabbitmq_cluster_nodes is defined %}
-cluster_formation.classic_config.nodes.1 = {{ rabbitmq_cluster_nodes | join('@') }}
+{% for node in rabbitmq_cluster_nodes %}
+cluster_formation.classic_config.nodes.{{ loop.index }} = rabbit@{{ node }}
+{% endfor %}
 {% endif %}
 cluster_formation.randomize_startup_delay_range.min = 0
 cluster_formation.randomize_startup_delay_range.max = 2

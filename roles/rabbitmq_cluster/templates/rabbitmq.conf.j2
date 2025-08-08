@@ -45,7 +45,7 @@ cluster_name = {{ rabbitmq_cluster_name }}
 cluster_formation.peer_discovery_backend = {{ rabbitmq_cluster_discovery_backend | default('rabbit_peer_discovery_classic_config') }}
 {% if rabbitmq_cluster_nodes is defined %}
 {% for node in rabbitmq_cluster_nodes %}
-cluster_formation.classic_config.nodes.{{ loop.index }} = rabbit@{{ node }}
+cluster_formation.classic_config.nodes.{{ loop.index }} = {{ node }}
 {% endfor %}
 {% endif %}
 {% endif %}

@@ -8,6 +8,8 @@ rabbitmq_cluster_nodes: >-
      | map('regex_replace', '^(.*)$', 'rabbit@\\1')
      | difference(['rabbit@' + hostvars[inventory_hostname].name])
      | list }}
+# rabbitmq_primary: "{{ [groups['rabbitmq'][0]] }}"
+# rabbitmq_secondary: "{{ groups['rabbitmq'][1:] }}"
 
 # Security Configuration
 rabbitmq_allow_guest_loopback: false

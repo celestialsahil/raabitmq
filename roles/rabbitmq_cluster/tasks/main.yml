@@ -40,21 +40,21 @@
 #   failed_when: false # Command fails if node is not in a cluster, which is ok
 #   when: inventory_hostname in groups['rabbitmq_secondary']
 
-- name: Join the cluster (if not already clustered)
+ name: Join the cluster (if not already clustered)
   block:
     - name: Stop the RabbitMQ app before joining
       command: rabbitmqctl stop_app
       ignore_errors: yes
 
     - name: Join the primary node
-      command: "rabbitmqctl join_cluster rabbit@{{ groups['rabbitmq_primary'][0] }}"
+      command: "rabbitmqctl join_cluster {{ 'rabbit@' + hostvars[groups['rabbitmq'] | sort | first].name }}"
       register: join_result
       changed_when: "'Clustering node' in join_result.stdout"
 
     - name: Start the RabbitMQ app after joining
       command: rabbitmqctl start_app
   when:
-    - inventory_hostname in groups['rabbitmq_secondary']
+    - inventory_hostname != (groups['rabbitmq'] | sort | first)
     - "'Clustering with' not in cluster_status_check.stdout"
 
 - name: Finalize Cluster Configuration (runs on primary node)

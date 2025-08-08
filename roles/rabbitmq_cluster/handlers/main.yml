@@ -1,0 +1,39 @@
+---
+- name: restart rabbitmq
+  systemd:
+    name: rabbitmq-server
+    state: restarted
+    daemon_reload: yes
+  register: rabbitmq_restart
+  until: rabbitmq_restart is succeeded
+  retries: 3
+  delay: 10
+
+- name: start rabbitmq
+  systemd:
+    name: rabbitmq-server
+    state: started
+    enabled: yes
+  register: rabbitmq_start
+  until: rabbitmq_start is succeeded
+  retries: 3
+  delay: 5
+
+- name: stop rabbitmq
+  systemd:
+    name: rabbitmq-server
+    state: stopped
+  register: rabbitmq_stop
+  until: rabbitmq_stop is succeeded
+  retries: 3
+  delay: 5
+
+- name: reload rabbitmq
+  systemd:
+    name: rabbitmq-server
+    state: reloaded
+  ignore_errors: yes
+
+- name: daemon-reload
+  systemd:
+    daemon_reload: yes

@@ -8,7 +8,7 @@ filters:
   - status = RUNNING
 compose:
   #ansible_host: networkInterfaces[0].networkIP
-  ansible_host: name
+  ansible_host: ansible_nodename
 groups:
   rabbitmq: "labels.package == 'rabbitmq'"
 

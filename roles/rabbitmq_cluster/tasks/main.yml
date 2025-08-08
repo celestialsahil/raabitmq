@@ -33,12 +33,11 @@
 - name: Flush handlers to ensure service is restarted with new config
   meta: flush_handlers
 
-# - name: Check if this node is already part of a cluster
-#   command: rabbitmqctl cluster_status
-#   register: cluster_status_check
-#   changed_when: false
-#   failed_when: false # Command fails if node is not in a cluster, which is ok
-#   when: inventory_hostname in groups['rabbitmq_secondary']
+- name: Check if this node is already part of a cluster
+  command: rabbitmqctl cluster_status
+  register: cluster_status_check
+  changed_when: false
+  failed_when: false # Command fails if node is not in a cluster, which is ok
 
 - name: Join the cluster (if not already clustered)
   block:

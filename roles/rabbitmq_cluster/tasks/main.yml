@@ -40,7 +40,7 @@
 #   failed_when: false # Command fails if node is not in a cluster, which is ok
 #   when: inventory_hostname in groups['rabbitmq_secondary']
 
- name: Join the cluster (if not already clustered)
+- name: Join the cluster (if not already clustered)
   block:
     - name: Stop the RabbitMQ app before joining
       command: rabbitmqctl stop_app

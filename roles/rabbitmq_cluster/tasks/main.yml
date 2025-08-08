@@ -16,6 +16,9 @@
     mode: '0400'
   notify: restart rabbitmq
 
+- name: Flush handlers to restart RabbitMQ with new config
+  meta: flush_handlers
+
 - name: Copy TLS certificates (if enabled)
   copy:
     src: "files/ssl/{{ item }}"

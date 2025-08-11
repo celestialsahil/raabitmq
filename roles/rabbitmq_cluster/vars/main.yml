@@ -13,8 +13,6 @@ rabbitmq_management_bind_ip: "0.0.0.0"
 # Security Configuration
 rabbitmq_allow_guest_loopback: false
 
-rabbitmq_erlang_cookie: "A4bCdE6fG8hJ1kL3mN5pQ7rS9tV1wX3yZ5aB7cE9f"
-
 # Clustering Configuration
 rabbitmq_cluster_name: "mahesha"
 rabbitmq_cluster_enabled: true
@@ -59,6 +57,25 @@ rabbitmq_plugins:
 rabbitmq_health_check_timeout: 60
 rabbitmq_health_check_retries: 10
 rabbitmq_health_check_delay: 10
+
+# Erlang Cookie - CRITICAL
+# !! IMPORTANT !! Use Ansible Vault to encrypt this file in production.
+# This MUST be a secure, secret string and be identical on all nodes.
+rabbitmq_erlang_cookie: "9wJk7xR3gH5tY2u8iP4oA6sD1fG8hJ0kL2mN5bV"
+
+# High Availability (HA) Policy
+# This policy ensures all queues are mirrored across 2 nodes.
+rabbitmq_ha_policy_name: "ha-all"
+rabbitmq_ha_policy_pattern: ".*" # Apply to all queues
+rabbitmq_ha_policy_definition:
+  ha-mode: "exactly"
+  ha-params: 2
+  ha-sync-mode: "automatic"
+
+# Performance Tuning
+# Set the maximum number of file descriptors for the RabbitMQ process.
+# This is critical for handling a large number of concurrent connections.
+rabbitmq_open_file_limit: 65536
 
 # Performance Tuning
 # Set the maximum number of file descriptors for the RabbitMQ process.

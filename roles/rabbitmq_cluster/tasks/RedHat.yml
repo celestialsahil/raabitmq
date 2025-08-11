@@ -173,6 +173,20 @@
 - name: Flush handlers to restart RabbitMQ after enabling plugin
   meta: flush_handlers
 
+# Health check verification
+- name: Wait for management interface to be ready
+  uri:
+    url: "http://localhost:15672/api/overview"
+    method: GET
+    user: "{{ rabbitmq_admin_user }}"
+    password: "{{ rabbitmq_admin_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  register: management_check
+  until: management_check.status == 200
+  retries: 10
+  delay: 10
+  
 - name: Finalize Cluster Configuration (runs on primary node)
   block:
     - name: Add RabbitMQ admin user with all permissions
@@ -219,20 +233,6 @@
       debug:
         var: final_cluster_status.stdout_lines
   when: inventory_hostname != (groups['rabbitmq'] | sort | first)
-
-# Health check verification
-- name: Wait for management interface to be ready
-  uri:
-    url: "http://localhost:15672/api/overview"
-    method: GET
-    user: "{{ rabbitmq_admin_user }}"
-    password: "{{ rabbitmq_admin_password }}"
-    force_basic_auth: yes
-    status_code: 200
-  register: management_check
-  until: management_check.status == 200
-  retries: 10
-  delay: 10
 
 - name: Display RabbitMQ installation status for RHEL
   debug:

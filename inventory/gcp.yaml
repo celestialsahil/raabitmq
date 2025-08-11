@@ -4,8 +4,8 @@ projects:
 auth_kind: application
 regions:
   - asia-south1
-# filters:
-#   - status = RUNNING
+filters:
+  - status = RUNNING
 compose:
   ansible_host: networkInterfaces[0].networkIP
 

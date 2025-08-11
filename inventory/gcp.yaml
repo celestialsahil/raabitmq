@@ -6,12 +6,13 @@ regions:
   - asia-south1
 filters:
   - status = RUNNING
+hostnames:
+  - name
 compose:
   gcp_zone: zone
   gcp_region: networkInterfaces[0].subnetwork.region
   gcp_compute_ssh_flags: "--tunnel-through-iap --no-user-output-enabled --quiet"
   gcp_compute_scp_flags: "--tunnel-through-iap --quiet"
-
 # compose:
 #   #ansible_host: networkInterfaces[0].networkIP
 #   ansible_host: ansible_nodename

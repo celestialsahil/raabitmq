@@ -237,3 +237,7 @@
       RabbitMQ {{ rabbitmq_version }} installation completed successfully!
       Management interface: http://{{ ansible_default_ipv4.address }}:15672
       Admin user: {{ rabbitmq_admin_user }}
+
+      Repositories configured:
+      - Erlang: modern-erlang (EL{{ ansible_distribution_major_version }})
+      - RabbitMQ: rabbitmq-el{{ ansible_distribution_major_version }}

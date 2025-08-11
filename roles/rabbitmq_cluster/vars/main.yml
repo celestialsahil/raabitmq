@@ -1,3 +1,20 @@
+# RabbitMQ Version Configuration
+rabbitmq_version: "4.1.0"
+
+# Admin User Configuration (TODO: Move to Ansible Vault)
+rabbitmq_admin_user: "admin"
+rabbitmq_admin_password: "admin123"
+
+# Network Configuration
+rabbitmq_tcp_port: 5672
+rabbitmq_management_port: 15672
+rabbitmq_management_bind_ip: "0.0.0.0"
+
+# Security Configuration
+rabbitmq_allow_guest_loopback: false
+
+rabbitmq_erlang_cookie: "A4bCdE6fG8hJ1kL3mN5pQ7rS9tV1wX3yZ5aB7cE9f"
+
 # Clustering Configuration
 rabbitmq_cluster_name: "mahesha"
 rabbitmq_cluster_enabled: true
@@ -8,11 +25,6 @@ rabbitmq_cluster_nodes: >-
      | map('regex_replace', '^(.*)$', 'rabbit@\\1')
      | difference(['rabbit@' + hostvars[inventory_hostname].name])
      | list }}
-# rabbitmq_primary: "{{ [groups['rabbitmq'][0]] }}"
-# rabbitmq_secondary: "{{ groups['rabbitmq'][1:] }}"
-
-# Security Configuration
-rabbitmq_allow_guest_loopback: false
 
 # SSL/TLS Configuration
 rabbitmq_enable_tls: false
@@ -38,14 +50,15 @@ rabbitmq_channel_max: 2047
 rabbitmq_connection_max: 65535
 rabbitmq_heartbeat: 60
 
-# High Availability (HA) Policy
-# This policy ensures all queues are mirrored across 2 nodes.
-rabbitmq_ha_policy_name: "ha-all"
-rabbitmq_ha_policy_pattern: ".*" # Apply to all queues
-rabbitmq_ha_policy_definition:
-  ha-mode: "exactly"
-  ha-params: 2
-  ha-sync-mode: "automatic"
+# Plugin Configuration
+rabbitmq_plugins:
+  - rabbitmq_management
+  - rabbitmq_management_agent
+
+# Health Check Configuration
+rabbitmq_health_check_timeout: 60
+rabbitmq_health_check_retries: 10
+rabbitmq_health_check_delay: 10
 
 # Performance Tuning
 # Set the maximum number of file descriptors for the RabbitMQ process.

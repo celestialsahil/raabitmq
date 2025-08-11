@@ -2,6 +2,7 @@
 - name: Install and configure the Fresh raabitmq cluster and Verify the cluster
   hosts: rabbitmq
   become: true
+  connection: gcp_ssh
   #serial: 1 # This is a critical safety measure
   roles:
     - role: rabbitmq_cluster

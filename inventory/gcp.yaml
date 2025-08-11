@@ -14,6 +14,8 @@ compose:
 #   ansible_host: ansible_nodename
 groups:
   rabbitmq: "labels.package == 'rabbitmq'"
+  zookeeper: "labels.role1 == 'zookeeper'"
+  kafka: "labels.role2 == 'kafka'"
 
 # Define your cluster nodes
 # groups:

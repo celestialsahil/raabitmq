@@ -4,3 +4,9 @@
   become: true
   roles:
     - rabbitmq
+
+- name: Install RabbitMQ on target nodes
+  hosts: kafka
+  become: true
+  roles:
+    - kafkaq

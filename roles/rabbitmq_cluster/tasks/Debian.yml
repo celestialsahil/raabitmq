@@ -108,8 +108,8 @@
 
 - name: Copy TLS certificates (if enabled)
   template:
-    src: "ssl/{{ item }}"
-    dest: "/etc/rabbitmq/ssl/{{ item }}"
+    src: "ssl/{{ cert_file }}"
+    dest: "/etc/rabbitmq/ssl/{{ cert_file }}"
     owner: rabbitmq
     group: rabbitmq
     mode: '0644'
@@ -117,6 +117,8 @@
     - "ca_certificate.pem"
     - "server_certificate.pem"
     - "server_key.pem"
+  loop_control:
+    loop_var: cert_file
   when: rabbitmq_enable_tls
 
 # FIXED: Deploy configuration before enabling management

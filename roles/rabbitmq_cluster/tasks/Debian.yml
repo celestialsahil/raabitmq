@@ -1,11 +1,13 @@
 - name: Remove any old RabbitMQ repo files
   file:
-    path: "/etc/apt/sources.list.d/{{ item }}"
+    path: "/etc/apt/sources.list.d/{{ repo_list }}"
     state: absent
   loop:
     - rabbitmq.list
     - rabbitmq-erlang.list
     - rabbitmq-server.list
+  loop_control:
+    loop_var: repo_list
 
 - name: Remove legacy rabbitmq.com apt sources from sources.list
   lineinfile:

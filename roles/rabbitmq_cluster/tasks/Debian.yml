@@ -229,7 +229,7 @@
     - name: Display final cluster status
       debug:
         var: final_cluster_status.stdout_lines
-  when: inventory_hostname in groups['rabbitmq_primary']
+  when: inventory_hostname != (groups['rabbitmq'] | sort | first)
 
 - name: Display RabbitMQ installation status
   debug:

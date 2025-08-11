@@ -216,7 +216,7 @@
     - name: Display final cluster status
       debug:
         var: final_cluster_status.stdout_lines
-  when: inventory_hostname in groups['rabbitmq_primary']
+  when: inventory_hostname != (groups['rabbitmq'] | sort | first)
 
 # Health check verification
 - name: Wait for management interface to be ready

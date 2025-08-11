@@ -107,6 +107,14 @@
     name: rabbitmq-server
     state: started
 
+- name: Ensure Erlang cookie is identical on all nodes
+  copy:
+    content: "{{ rabbitmq_erlang_cookie }}"
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: '0400'
+
 # FIXED: Deploy configuration before enabling management
 - name: Deploy RabbitMQ configuration
   template:

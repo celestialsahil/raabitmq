@@ -136,6 +136,8 @@
     - "ca_certificate.pem"
     - "server_certificate.pem"
     - "server_key.pem"
+  loop_control:
+    loop_var: cert_file
   when: rabbitmq_enable_tls
 
 # Deploy configuration before enabling management

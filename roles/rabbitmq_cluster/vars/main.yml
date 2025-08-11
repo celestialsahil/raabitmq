@@ -76,8 +76,3 @@ rabbitmq_ha_policy_definition:
 # Set the maximum number of file descriptors for the RabbitMQ process.
 # This is critical for handling a large number of concurrent connections.
 rabbitmq_open_file_limit: 65536
-
-# Performance Tuning
-# Set the maximum number of file descriptors for the RabbitMQ process.
-# This is critical for handling a large number of concurrent connections.
-rabbitmq_open_file_limit: 65536

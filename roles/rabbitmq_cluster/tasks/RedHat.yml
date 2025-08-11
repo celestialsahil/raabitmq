@@ -116,23 +116,28 @@
   retries: 3
   delay: 10
 
-- name: Enable RabbitMQ service
-  systemd:
-    name: rabbitmq-server
-    enabled: yes
+- name: Ensure Erlang cookie is identical on all nodes
+  copy:
+    content: "{{ rabbitmq_erlang_cookie }}"
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: '0400'
+  when: rabbitmq_erlang_cookie
 
-- name: Start RabbitMQ service
-  systemd:
-    name: rabbitmq-server
-    state: started
+- name: Copy TLS certificates (if enabled)
+  template:
+    src: "ssl/{{ item }}"
+    dest: "/etc/rabbitmq/ssl/{{ item }}"
+    owner: rabbitmq
+    group: rabbitmq
+    mode: '0644'
+  loop:
+    - "ca_certificate.pem"
+    - "server_certificate.pem"
+    - "server_key.pem"
+  when: rabbitmq_enable_tls
 
-- name: Wait for RabbitMQ to be ready
-  wait_for:
-    port: 5672
-    host: localhost
-    timeout: 60
-    delay: 5
-    
 # Deploy configuration before enabling management
 - name: Deploy RabbitMQ configuration
   template:
@@ -144,10 +149,12 @@
     group: rabbitmq
   notify: restart rabbitmq
 
-- name: Flush handlers to restart RabbitMQ with new config
-  meta: flush_handlers
+- name: Enable RabbitMQ service is enabled and started
+  systemd:
+    name: rabbitmq-server
+    state: started
+    enabled: yes
 
-# Wait for RabbitMQ to be ready before configuring
 - name: Wait for RabbitMQ to be ready
   wait_for:
     port: 5672
@@ -164,20 +171,52 @@
 - name: Flush handlers to restart RabbitMQ after enabling plugin
   meta: flush_handlers
 
-- name: Add RabbitMQ admin user with all permissions
-  rabbitmq_user:
-    user: "{{ rabbitmq_admin_user }}"
-    password: "{{ rabbitmq_admin_password }}"
-    vhost: /
-    configure_priv: .*
-    read_priv: .*
-    write_priv: .*
-    tags: administrator
-    state: present
-  register: admin_user_result
-  until: admin_user_result is succeeded
-  retries: 3
-  delay: 5
+- name: Finalize Cluster Configuration (runs on primary node)
+  block:
+    - name: Add RabbitMQ admin user with all permissions
+      rabbitmq_user:
+        user: "{{ rabbitmq_admin_user }}"
+        password: "{{ rabbitmq_admin_password }}"
+        vhost: /
+        configure_priv: .*
+        read_priv: .*
+        write_priv: .*
+        tags: administrator
+        state: present
+      register: admin_user_result
+      until: admin_user_result is succeeded
+      retries: 3
+      delay: 5
+
+    - name: Delete the default 'guest' user for security
+      rabbitmq_user:
+        user: guest
+        state: absent
+
+    - name: Set High Availability policy for all queues
+      rabbitmq_policy:
+        name: "{{ rabbitmq_ha_policy_name }}"
+        pattern: "{{ rabbitmq_ha_policy_pattern }}"
+        tags: "{{ rabbitmq_ha_policy_definition }}"
+        state: present
+
+    - name: Set open file limit for RabbitMQ
+      pam_limits:
+        domain: "rabbitmq"
+        limit_type: "-"
+        limit_item: "nofile"
+        value: "{{ rabbitmq_open_file_limit }}"
+      when: rabbitmq_open_file_limit is defined
+
+    - name: Check final cluster status
+      command: rabbitmqctl cluster_status
+      register: final_cluster_status
+      changed_when: false
+
+    - name: Display final cluster status
+      debug:
+        var: final_cluster_status.stdout_lines
+  when: inventory_hostname in groups['rabbitmq_primary']
 
 # Health check verification
 - name: Wait for management interface to be ready

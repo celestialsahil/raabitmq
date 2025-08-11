@@ -1,0 +1,11 @@
+---
+- name: Abort due to unsupported operating system
+  fail:
+    msg: >-
+      The operating system '{{ ansible_distribution }} {{ ansible_distribution_release }}'
+      is not currently supported by this RabbitMQ automation.
+
+      Supported OS versions:
+        - Ubuntu: focal (20.04), jammy (22.04), noble (24.04)
+        - Debian: bullseye (11), bookworm (12)
+        - RHEL/CentOS/Rocky/OracleLinux: 8 and 9

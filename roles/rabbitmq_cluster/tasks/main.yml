@@ -1,90 +1,78 @@
 ---
-- name: Set open file limit for RabbitMQ
-  pam_limits:
-    domain: "rabbitmq"
-    limit_type: "-"
-    limit_item: "nofile"
-    value: "{{ rabbitmq_open_file_limit }}"
-  when: rabbitmq_open_file_limit is defined
+# ============================================================================
+# RabbitMQ Installation - Per-Host Confirmation Control
+# ============================================================================
 
-- name: Ensure Erlang cookie is identical on all nodes
-  copy:
-    content: "{{ rabbitmq_erlang_cookie }}"
-    dest: /var/lib/rabbitmq/.erlang.cookie
-    owner: rabbitmq
-    group: rabbitmq
-    mode: '0400'
-  notify: restart rabbitmq
+# OS and Version Compatibility Matrix (GCP-focused)
+- name: Set compatible RabbitMQ versions based on OS and architecture
+  set_fact:
+    compatible_versions: >-
+      {% if (ansible_distribution == 'Ubuntu' and ansible_distribution_release in ['focal', 'jammy', 'noble']) or
+            (ansible_distribution == 'Debian' and ansible_distribution_release in ['bullseye', 'bookworm']) %}
+        {% if ansible_architecture == 'x86_64' %}
+          ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
+        {% elif ansible_architecture == 'aarch64' %}
+          ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
+        {% else %}
+          []
+        {% endif %}
+      {% elif ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'OracleLinux', 'AlmaLinux'] and ansible_distribution_major_version in ['8', '9'] %}
+        {% if ansible_architecture == 'x86_64' %}
+          ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
+        {% elif ansible_architecture == 'aarch64' %}
+          ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
+        {% else %}
+          []
+        {% endif %}
+      {% elif ansible_distribution == 'Fedora' and ansible_distribution_major_version | int >= 39 %}
+        ['4.1.3', '4.1.2', '4.1.1', '4.1.0']
+      {% else %}
+        []
+      {% endif %}
 
-- name: Flush handlers to restart RabbitMQ with new config
-  meta: flush_handlers
+- name: Display detected system information
+  debug:
+    msg: |
+      Detected System Information:
+        - OS: {{ ansible_distribution }} {{ ansible_distribution_release | default(ansible_distribution_major_version) }}
+        - Architecture: {{ ansible_architecture }}
+        - Host: {{ inventory_hostname }}
+  tags: ['rabbitmq', 'info']
 
-- name: Copy TLS certificates (if enabled)
-  copy:
-    src: "files/ssl/{{ item }}"
-    dest: "/etc/rabbitmq/ssl/{{ item }}"
-    owner: rabbitmq
-    group: rabbitmq
-    mode: '0644'
-  loop:
-    - "ca_certificate.pem"
-    - "server_certificate.pem"
-    - "server_key.pem"
-  when: rabbitmq_enable_tls
-  notify: restart rabbitmq
+- name: Verify user-specified RabbitMQ version is compatible
+  fail:
+    msg: |
+      ❌ INCOMPATIBLE RABBITMQ VERSION ❌
+      Requested Version: {{ rabbitmq_version }}
+      Host: {{ inventory_hostname }}
+      Compatible versions: {{ compatible_versions | join(', ') }}
+  when: rabbitmq_version not in compatible_versions
+  tags: ['rabbitmq', 'validation']
 
-- name: Flush handlers to ensure service is restarted with new config
-  meta: flush_handlers
+# Set final installation facts
+- name: Finalize RabbitMQ installation facts
+  set_fact:
+    selected_version: "{{ rabbitmq_version }}"
+    package_manager: "{{ 'apt' if ansible_distribution in ['Ubuntu', 'Debian'] else 'yum' }}"
+  when: host_upgrade_confirmed | default(true)
+  tags: ['rabbitmq', 'facts']
 
-- name: Wait for RabbitMQ service to be up
-  wait_for:
-    port: "{{ rabbitmq_tcp_port }}"
-    delay: 3
-    timeout: 60
+- name: Display installation plan
+  debug:
+    msg: |
+      🚀 RabbitMQ Installation Plan for {{ inventory_hostname }}:
+        - Target Version: {{ selected_version }}
+        - Package Manager: {{ package_manager }}
+        - Status: {{ 'PROCEEDING' if host_upgrade_confirmed | default(false) else 'SKIPPED' }}
+  when: host_upgrade_confirmed | default(true)
+  tags: ['rabbitmq', 'info']
 
-# - name: Check if this node is already part of a cluster
-#   command: rabbitmqctl cluster_status
-#   register: cluster_status_check
-#   changed_when: false
-#   failed_when: false # Command fails if node is not in a cluster, which is ok
-
-- name: Join the cluster (if not already clustered)
-  block:
-    - name: Stop the RabbitMQ app before joining
-      command: rabbitmqctl stop_app
-      ignore_errors: yes
-
-    - name: Join the primary node
-      command: "rabbitmqctl join_cluster {{ 'rabbit@' + hostvars[groups['rabbitmq'] | sort | first].name }}"
-      register: join_result
-      changed_when: "'Clustering node' in join_result.stdout"
-
-    - name: Start the RabbitMQ app after joining
-      command: rabbitmqctl start_app
-  when:
-    - inventory_hostname != (groups['rabbitmq'] | sort | first)
-    # - "'Clustering with' not in cluster_status_check.stdout"
-
-- name: Finalize Cluster Configuration (runs on primary node)
-  block:
-    - name: Set High Availability policy for all queues
-      rabbitmq_policy:
-        name: "{{ rabbitmq_ha_policy_name }}"
-        pattern: "{{ rabbitmq_ha_policy_pattern }}"
-        tags: "{{ rabbitmq_ha_policy_definition }}"
-        state: present
-
-    - name: Delete the default 'guest' user for security
-      rabbitmq_user:
-        user: guest
-        state: absent
-
-    - name: Check final cluster status
-      command: rabbitmqctl cluster_status
-      register: final_cluster_status
-      changed_when: false
-
-    - name: Display final cluster status
-      debug:
-        var: final_cluster_status.stdout_lines
-  when: inventory_hostname in groups['rabbitmq_primary']
+# Include platform-specific installation tasks (only if confirmed)
+- name: Include platform-specific installation tasks
+  include_tasks: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "unsupported_os.yml"
+  when: host_upgrade_confirmed | default(true)
+  tags: ['rabbitmq', 'install']

@@ -38,11 +38,6 @@ rabbitmq_channel_max: 2047
 rabbitmq_connection_max: 65535
 rabbitmq_heartbeat: 60
 
-# Erlang Cookie - CRITICAL
-# !! IMPORTANT !! Use Ansible Vault to encrypt this file in production.
-# This MUST be a secure, secret string and be identical on all nodes.
-rabbitmq_erlang_cookie: "9wJk7xR3gH5tY2u8iP4oA6sD1fG8hJ0kL2mN5bV"
-
 # High Availability (HA) Policy
 # This policy ensures all queues are mirrored across 2 nodes.
 rabbitmq_ha_policy_name: "ha-all"

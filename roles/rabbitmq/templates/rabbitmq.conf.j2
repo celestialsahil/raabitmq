@@ -39,17 +39,6 @@ management.ssl.certfile = {{ rabbitmq_ssl_cert_file | default('/etc/rabbitmq/ssl
 management.ssl.keyfile = {{ rabbitmq_ssl_key_file | default('/etc/rabbitmq/ssl/server_key.pem') }}
 {% endif %}
 
-{% if rabbitmq_cluster_enabled | default(false) %}
-## Clustering Configuration
-cluster_name = {{ rabbitmq_cluster_name }}
-cluster_formation.peer_discovery_backend = {{ rabbitmq_cluster_discovery_backend | default('rabbit_peer_discovery_classic_config') }}
-{% if rabbitmq_cluster_nodes is defined %}
-{% for node in rabbitmq_cluster_nodes %}
-cluster_formation.classic_config.nodes.{{ loop.index }} = rabbit@{{ node }}
-{% endfor %}
-{% endif %}
-{% endif %}
-
 ## Performance Tuning
 channel_max = {{ rabbitmq_channel_max | default('2047') }}
 connection_max = {{ rabbitmq_connection_max | default('65535') }}

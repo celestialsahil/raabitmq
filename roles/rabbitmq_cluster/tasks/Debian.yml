@@ -217,7 +217,7 @@
     - name: Display final cluster status
       debug:
         var: final_cluster_status.stdout_lines
-  when: inventory_hostname != (groups['rabbitmq'] | sort | first)
+  when: inventory_hostname == (groups['rabbitmq'] | sort | first)
 
 # FIXED: Verify installation
 - name: Wait for management interface to be ready

@@ -82,7 +82,7 @@
     name: rabbitmq-server
     state: started
     enabled: yes
-  when: inventory_hostname == (groups['rabbitmq'] | sort | first)
+  # when: inventory_hostname == (groups['rabbitmq'] | sort | first)
 
 - name: Wait for RabbitMQ to be ready
   wait_for:
